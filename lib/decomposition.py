@@ -61,6 +61,7 @@ class PCA:
     self.inputDF = dataFrame
     self.nComponents = nComponents
     self.confidenceLimit = confidenceLimit
+    self._fitPcaModel()
 
 
   def _fitPcaModel(self):
@@ -78,7 +79,7 @@ class PCA:
 
   def _calculateEigenvalues(self, S):
     eigenvalues = S ** 2 / (self.inputDF.shape[0] - 1)
-    pcStrings = ['PC{}'.format(x) for x in range(1, self.inputDF.shape[1] + 1)]
+    pcStrings = ['PC{}'.format(x) for x in range(1, self.inputDF.shape[0] + 1)]
     eigenvalues = pd.Series(eigenvalues, index=pcStrings)
     eigenvalues.index.rename('Principle Components', inplace=True)
     self.__eigenvalues_ = eigenvalues
@@ -89,7 +90,7 @@ class PCA:
     self.__loadings_.columns = self.inputDF.columns
     if self.__loadings_.columns.name is None:
       self.__loadings_.columns.rename('Features', inplace=True)
-    self.__loadings_.index = ['PC{}'.format(x) for x in range(1, self.inputDF.shape[1]+1)]
+    self.__loadings_.index = ['PC{}'.format(x) for x in range(1, self.inputDF.shape[0]+1)]
     self.__loadings_.index.rename('Principle Components', inplace=True)
 
 

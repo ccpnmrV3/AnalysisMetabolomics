@@ -32,7 +32,7 @@ class Decomposition:
     self.__normChanged = True
     self.__centChanged = True
     self.__scalingChanged = True
-    self.__deScaleFunc = lambda x: x
+    self._deScaleFunc = lambda x: x
 
     self.availablePlotData = OrderedDict()
 
@@ -43,19 +43,21 @@ class Decomposition:
     self.auto = False
 
 
-  def __del__(self):
-    self.deRegisterNotifiers()
+  # def __del__(self):
+  #   self.deRegisterNotifiers()
 
 
   def registerNotifiers(self):
-    self.project._registerNotify(self.refreshSourceDataOptions, 'ccp.nmr.Nmr.DataSource', 'postInit')
-    self.project._registerNotify(self.refreshSourceDataOptions, 'ccp.nmr.Nmr.DataSource', 'delete')
-    self.project._registerNotify(self.refreshSourceDataOptions, 'ccp.nmr.Nmr.DataSource', 'setName')
+    self.project.registerNotifier('Spectrum', 'create', self.refreshSourceDataOptions)
+    self.project.registerNotifier('Spectrum', 'change', self.refreshSourceDataOptions)
+    self.project.registerNotifier('Spectrum', 'rename', self.refreshSourceDataOptions)
+    self.project.registerNotifier('Spectrum', 'delete', self.refreshSourceDataOptions)
 
-  def deRegisterNotifiers(self):
-    self.project._unregisterNotify(self.refreshSourceDataOptions, 'ccp.nmr.Nmr.DataSource', 'postInit')
-    self.project._unregisterNotify(self.refreshSourceDataOptions, 'ccp.nmr.Nmr.DataSource', 'delete')
-    self.project._unregisterNotify(self.refreshSourceDataOptions, 'ccp.nmr.Nmr.DataSource', 'setName')
+
+  # def deRegisterNotifiers(self):
+  #   self.project._unregisterNotify(self.refreshSourceDataOptions, 'ccp.nmr.Nmr.DataSource', 'postInit')
+  #   self.project._unregisterNotify(self.refreshSourceDataOptions, 'ccp.nmr.Nmr.DataSource', 'delete')
+  #   self.project._unregisterNotify(self.refreshSourceDataOptions, 'ccp.nmr.Nmr.DataSource', 'setName')
 
 
   @property
@@ -184,9 +186,9 @@ class Decomposition:
 
   def scale(self):
     if self.scaling.lower() == 'pareto':
-      self.__data, self.__deScaleFunc = scaling.paretoScale(self.__data)
+      self.__data, self._deScaleFunc = scaling.paretoScale(self.__data)
     elif self.scaling.lower() == 'unit variance':
-      self.__data, self.__deScaleFunc = scaling.unitVarianceScale(self.__data)
+      self.__data, self._deScaleFunc = scaling.unitVarianceScale(self.__data)
     elif self.scaling.lower() == 'none':
       pass
     else:
@@ -216,10 +218,10 @@ class Decomposition:
     defaults = OrderedDict()
     if self.method == 'PCA':
       self.availablePlotData = OrderedDict()
-      self.availablePlotData['Component #'] = list(range(len(self.model.scores)))
-      self.availablePlotData['Explained Vairance'] = self.model.explainedVariance
-      for score in self.model.scores:
-        self.availablePlotData[score] = self.model.scores[score].values
+      self.availablePlotData['Component #'] = list(range(len(self.model.scores_)))
+      self.availablePlotData['Explained Vairance'] = self.model.explainedVariance_
+      for score in self.model.scores_:
+        self.availablePlotData[score] = self.model.scores_[score].values
 
 
       defaults['xDefaultLeft'] = 'Component'
@@ -232,7 +234,7 @@ class Decomposition:
                                         **defaults)
 
 
-  def saveLoadingsToSpectra(self, prefix='test_pca', descale = True, components=None):
+  def saveLoadingsToSpectra(self, prefix='test_pca', descale=True, components=None):
     saveLocation = os.path.join(self.project.path, METABOLOMICS_SAVE_LOCATION, 'pca', prefix)
 
     sgNames = [sg.name for sg in self.project.spectrumGroups]
@@ -252,10 +254,11 @@ class Decomposition:
 
     if components is None:
       # TODO: Generalize beyond PCA
-      components = self.model.loadings
+      components = self.model.loadings_
 
     if descale:
-      components = components.apply(self.__deScaleFunc)
+      print(components)
+      components = components.apply(self._deScaleFunc)
 
     spectraDicToBrukerExperiment(components, saveLocation)
 

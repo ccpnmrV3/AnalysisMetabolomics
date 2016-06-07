@@ -39,12 +39,12 @@ def bruker1dDict(refDF=None, SF=1, FTSIZE=None, SW_p=None, OFFSET=None):
   procs['SW_p'] = SW_p # Spectral width of processed data in Hz
   procs['OFFSET'] = OFFSET # ppm value of left-most point in spectrum
   if refDF is not None:
-    ppmMin, ppmMax = refDF.index.min(), refDF.index.max()
-    swPpm = ppmMax - ppmMin
+    ppmMin, ppmMax = refDF.columns.min(), refDF.columns.max()
+    swPpm = float(ppmMax) - float(ppmMin)
     procs['SW_p'] = swPpm * procs['SF']
     procs['OFFSET'] = ppmMax
-    procs['FTSIZE'] = len(refDF)
-    procs['SI'] = len(refDF)
+    procs['FTSIZE'] = len(refDF.columns)
+    procs['SI'] = len(refDF.columns)
 
   return procs
 
@@ -78,6 +78,6 @@ def spectraDicToBrukerExperiment(spectraDF, directoryName, **kwargs):
 
     spectraDF = pd.concat(l, axis=1).T
   procs = bruker1dDict(spectraDF, SF=500)
-  for pcName in spectraDF:
-    writeBruker(os.path.join(directoryName, pcName), procs, spectraDF[pcName].values)
+  for pcName in spectraDF.index:
+    writeBruker(os.path.join(directoryName, pcName), procs, spectraDF.ix[pcName].values)
 

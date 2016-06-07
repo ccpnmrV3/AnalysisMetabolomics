@@ -5,7 +5,7 @@ from .centering import meanCenter
 def varianceScale(spectrumCluster, power):
   stdevs = np.std(spectrumCluster, axis=0)
   scaled = spectrumCluster / (stdevs ** power)
-  return scaled
+  return scaled, lambda x: x * (stdevs ** power)
 
 
 def unitVarianceScale(spectra):
