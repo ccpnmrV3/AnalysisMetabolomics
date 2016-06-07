@@ -1,9 +1,8 @@
 __author__ = 'TJ'
 
-from ccpn.framework.lib.SvnRevision import applicationVersion
-from ccpn.framework.Framework import defineProgramArguments, Framework
-
-applicationName = 'Metabolomics'
+# from ccpn.framework.lib.SvnRevision import applicationVersion
+# from ccpn.framework.Framework import defineProgramArguments, Framework
+from ccpn.framework.Framework import Framework
 
 
 class Metabolomics(Framework):
@@ -38,13 +37,13 @@ class Metabolomics(Framework):
     self.pythonConsole.writeConsoleCommand("application.showMetabolomicsPipeline()")
     self.project._logger.info("application.showMetabolomicsPipeline()")
 
-if __name__ == '__main__':
-
-  # argument parser
-  parser = defineProgramArguments()
-
-  # add any additional commandline argument here
-  commandLineArguments = parser.parse_args()
-
-  program = Metabolomics(applicationName, applicationVersion, commandLineArguments)
-  program.start()
+# if __name__ == '__main__':
+#
+#   # argument parser
+#   parser = defineProgramArguments()
+#
+#   # add any additional commandline argument here
+#   commandLineArguments = parser.parse_args()
+#
+#   program = Metabolomics(applicationName, applicationVersion, commandLineArguments)
+#   program.start()
