@@ -54,7 +54,7 @@ class MyThread(QtCore.QThread):
 
 class MetabolomicsModule(CcpnModule, Base):
 
-  def __init__(self, project, **kw):
+  def __init__(self,parent=None, project=None, **kw):
 
     super(MetabolomicsModule, self)
     CcpnModule.__init__(self, name='Metabolomics')
@@ -74,7 +74,7 @@ class MetabolomicsModule(CcpnModule, Base):
     self.scrollArea.setWidgetResizable(True)
     self.layout.addWidget(self.scrollArea, 1, 0)
 
-    self.widget = (PipelineWidgets(self, project))
+    self.widget = (PipelineWidgets(parent=parent, project=project))
     self.pipelineMainVLayout.addWidget(self.widget)
     self._thread = MyThread(self)
     self._thread.updated.connect(self.updatePipeline)

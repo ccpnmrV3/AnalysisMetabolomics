@@ -14,7 +14,10 @@ class Metabolomics(Framework):
   def _setupMenus(self):
     super()._setupMenus()
     menuSpec = ('Metabolomics', [("Decomposition (PCA)", self.showDecompositionModule),
-                                ])
+                                 ("Pipeline", self.showPipeline,)
+                                 ])
+
+
     self.addApplicationMenuSpec(menuSpec)
 
   def showDecompositionModule(self):
@@ -28,6 +31,12 @@ class Metabolomics(Framework):
     self.decomposition.presenter = self.ui.decompositionModule
     self.ui.mainWindow.moduleArea.addModule(self.ui.decompositionModule.widget, position='bottom')
 
+  def showPipeline(self, position='bottom', relativeTo=None):
+    from ccpn.AnalysisMetabolomics.MetabolomicsPipeline import MetabolomicsModule
+    pipelineModule = MetabolomicsModule(self.ui.mainWindow, project=self.project)
+    self.ui.mainWindow.moduleArea.addModule(pipelineModule, position=position)
+    self.pythonConsole.writeConsoleCommand("application.showMetabolomicsPipeline()")
+    self.project._logger.info("application.showMetabolomicsPipeline()")
 
 if __name__ == '__main__':
 

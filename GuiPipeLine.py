@@ -47,8 +47,13 @@ class PolyBaseline(QtGui.QWidget, Base):
     self.orderBox = Spinbox(self, grid=(0, 1))
     self.orderBox.setMinimum(2)
     self.orderBox.setMaximum(5)
-    self.controlPointMaximum = max([spectrum.spectrumLimits[0][1] for spectrum in self.current.spectrumGroup.spectra])
-    self.controlPointMinimum = min([spectrum.spectrumLimits[0][0] for spectrum in self.current.spectrumGroup.spectra])
+    if self.current.spectrumGroup is not None:
+      self.controlPointMaximum = max([spectrum.spectrumLimits[0][1] for spectrum in self.current.spectrumGroup.spectra])
+      self.controlPointMinimum = min([spectrum.spectrumLimits[0][0] for spectrum in self.current.spectrumGroup.spectra])
+    else:
+      self.controlPointMaximum = None
+      self.controlPointMinimum = None
+
     self.controlPointStepSize = 0.01
     # self.orderBox.setValue(2)
     self.orderBox.valueChanged.connect(self.updateLayout)
@@ -349,8 +354,9 @@ class ExcludeBaselinePoints(QtGui.QWidget, Base):
     self.pickOnSpectrumButton.toggled.connect(self.togglePicking)
     self.linePoint1 = pg.InfiniteLine(angle=0, pos=self.pointBox1.value(), movable=True, pen=(255, 0, 100))
     self.linePoint2 = pg.InfiniteLine(angle=0, pos=self.pointBox2.value(), movable=True, pen=(255, 0, 100))
-    self.current.strip.plotWidget.addItem(self.linePoint1)
-    self.current.strip.plotWidget.addItem(self.linePoint2)
+    if self.current.strip is not None:
+      self.current.strip.plotWidget.addItem(self.linePoint1)
+      self.current.strip.plotWidget.addItem(self.linePoint2)
     self.pointBox1.setValue(self.linePoint1.pos().y())
     self.pointBox2.setValue(self.linePoint2.pos().y())
     self.linePoint1.hide()
