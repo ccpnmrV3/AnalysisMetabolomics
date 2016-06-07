@@ -32,7 +32,7 @@ class Decomposition:
     self.__normChanged = True
     self.__centChanged = True
     self.__scalingChanged = True
-    self._deScaleFunc = lambda x: x
+    self.__deScaleFunc = lambda x: x
 
     self.availablePlotData = OrderedDict()
 
@@ -186,9 +186,9 @@ class Decomposition:
 
   def scale(self):
     if self.scaling.lower() == 'pareto':
-      self.__data, self._deScaleFunc = scaling.paretoScale(self.__data)
+      self.__data, self.__deScaleFunc = scaling.paretoScale(self.__data)
     elif self.scaling.lower() == 'unit variance':
-      self.__data, self._deScaleFunc = scaling.unitVarianceScale(self.__data)
+      self.__data, self.__deScaleFunc = scaling.unitVarianceScale(self.__data)
     elif self.scaling.lower() == 'none':
       pass
     else:
@@ -257,8 +257,7 @@ class Decomposition:
       components = self.model.loadings_
 
     if descale:
-      print(components)
-      components = components.apply(self._deScaleFunc)
+      components = components.apply(self.__deScaleFunc, axis=1)
 
     spectraDicToBrukerExperiment(components, saveLocation)
 
