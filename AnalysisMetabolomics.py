@@ -10,8 +10,8 @@ class Metabolomics(Framework):
   def __init__(self, applicationName, applicationVersion, commandLineArguments):
     Framework.__init__(self, applicationName, applicationVersion, commandLineArguments)
 
-  def _setupMenus(self):
-    super()._setupMenus()
+  def setupMenus( self ):
+    super().setupMenus( )
     menuSpec = ('Metabolomics', [("Decomposition (PCA)", self.showDecompositionModule),
                                  ("Pipeline", self.showPipeline,)
                                  ])
