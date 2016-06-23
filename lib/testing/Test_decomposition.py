@@ -277,7 +277,7 @@ class TestPCA_vs_SkLearn(unittest.TestCase):
     skl = sklearnPCA()
     skl.fit(self.inDFshort_centered)
     sklLoadings = skl.components_
-    npt.assert_array_almost_equal(sklLoadings, self.pcaShort.loadings_)
+    npt.assert_array_almost_equal(np.abs(sklLoadings), np.abs(self.pcaShort.loadings_))
 
   def testScores_tall(self):
     skl = sklearnPCA()
