@@ -164,7 +164,7 @@ class TestPCA_ShortData(unittest.TestCase):
                                                               name='Principle Components'))
     npt.assert_array_almost_equal(self.pca.loadings_.values,
                                   np.array([[-0.316228, -0.316228,  6.324555e-01, 0.632456],
-                                            [ 0.707107, -0.707107, -1.110069e-16, 0],
+                                            [ 0.707107, -0.707107,             0,        0],
                                             [ 0.632456,  0.632456,  3.162278e-01, 0.316228]]))
 
   def test_scores(self):
@@ -173,10 +173,10 @@ class TestPCA_ShortData(unittest.TestCase):
                                                              'SP1-2',
                                                              'SP1-3'],
                                                             name='spectra'))
-    npt.assert_array_almost_equal(self.pca.scores_.values,
-                                  np.array([[-0.912871,  1.224745,  0],
-                                            [-0.912871, -1.224745,  0],
-                                            [ 1.825742,  0,         0]]))
+    npt.assert_array_almost_equal(np.abs(self.pca.scores_.values),
+                                  np.abs(np.array([[-0.912871, -1.224745, 0],
+                                                   [-0.912871,  1.224745, 0],
+                                                   [ 1.825742,         0, 0]])))
 
   def test_explainedVariance(self):
     pdt.assert_index_equal(self.pca.scores_.columns, pd.Index(['PC1', 'PC2', 'PC3'], name='Principle Components'))
