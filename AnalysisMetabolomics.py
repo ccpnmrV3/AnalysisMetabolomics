@@ -21,8 +21,8 @@ class Metabolomics(Framework):
     from ccpn.AnalysisMetabolomics.Decomposition import Decomposition
     from ccpn.AnalysisMetabolomics.ui.gui.modules.DecompositionModule import DecompositionModule
 
-    self.decomposition = Decomposition(framework=self)
-    self.ui.decompositionModule = DecompositionModule(framework=self,
+    self.decomposition = Decomposition(application=self)
+    self.ui.decompositionModule = DecompositionModule(application=self,
                                                       interactor=self.decomposition,
                                                       parent=self.ui)
     self.decomposition.presenter = self.ui.decompositionModule

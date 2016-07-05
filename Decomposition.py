@@ -16,8 +16,8 @@ METABOLOMICS_SAVE_LOCATION = os.path.join('internal','metabolomics')
 
 class Decomposition:
 
-  def __init__(self, framework, presenter=None):
-    self.project = framework.project
+  def __init__(self, application, presenter=None):
+    self.project = application.project
     self.__presenter = None
     self.presenter = presenter
 

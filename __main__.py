@@ -2,7 +2,7 @@ __author__ = 'TJ'
 
 from ccpn.core.lib.Version import applicationVersion
 from ccpn.framework.Framework import defineProgramArguments
-from ccpn.AnalysisMetabolomics.AnalysisMetabolomics import Metabolomics
+from ccpn.AnalysisMetabolomics.AnalysisMetabolomics import Metabolomics as Application
 
 
 if __name__ == '__main__':
@@ -13,5 +13,5 @@ if __name__ == '__main__':
   # add any additional commandline argument here
   commandLineArguments = parser.parse_args()
 
-  program = Metabolomics('Metabolomics', applicationVersion, commandLineArguments)
-  program.start()
+  application = Application('Metabolomics', applicationVersion, commandLineArguments)
+  application.start()
