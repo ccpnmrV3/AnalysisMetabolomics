@@ -13,5 +13,5 @@ if __name__ == '__main__':
   # add any additional commandline argument here
   commandLineArguments = parser.parse_args()
 
-  application = Application('Metabolomics', applicationVersion, commandLineArguments)
+  application = Application('Metabolomics', '3.0.a1', commandLineArguments)
   application.start()

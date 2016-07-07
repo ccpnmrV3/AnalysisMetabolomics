@@ -154,7 +154,7 @@ class PipelineWidgets(QtGui.QWidget):
       ('Normalise Spectra', gp.NormaliseSpectra(self, self.project)),
       ('Centre', gp.Centre(self, self.project)),
       ('Scale', gp.Scale(self, self.project)),
-      (' -- Not Implemented -- ', None),
+      (' -- ', None),
       ('Poly Baseline', gp.PolyBaseline(self, self.project)),
       ('Align To Reference', gp.AlignToReference(self, self.project)),
       ('Align Spectra', gp.AlignSpectra(self, self.project)),
