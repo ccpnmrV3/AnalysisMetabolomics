@@ -70,13 +70,15 @@ class SpectrumGroupsWidget(QtGui.QWidget):
     if self.spectrumGroupButton.isChecked():
       for spectrumView in spectrumViews:
         spectrumView.setVisible(True)
-        spectrumView.plot.show()
+        if hasattr(spectrumView, 'plot'):
+          spectrumView.plot.show()
       self.showPeakList()
 
     else:
       for spectrumView in spectrumViews:
         spectrumView.setVisible(False)
-        spectrumView.plot.hide()
+        if hasattr(spectrumView, 'plot'):
+          spectrumView.plot.hide()
       self.hidePeakLists()
 
   def deleteSpectrumGroup(self):
