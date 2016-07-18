@@ -119,15 +119,15 @@ class PolyBaseline(QtGui.QWidget, Base):
 
   def turnOnPositionPicking(self):
     print('picking on')
-    self.current.registerNotify(self.setPositions, 'positions')
+    self.current.registerNotify(self.setPositions, 'cursorPosition')
 
   def turnOffPositionPicking(self):
     print('picking off')
-    self.current.unRegisterNotify(self.setPositions, 'positions')
+    self.current.unRegisterNotify(self.setPositions, 'cursorPosition')
 
   def setPositions(self, positions):
     if len(self.linePoints) < len(self.controlPointBoxList):
-      line = pg.InfiniteLine(angle=90, pos=self.current.positions[0], movable=True, pen=(0, 0, 100))
+      line = pg.InfiniteLine(angle=90, pos=self.current.cursorPosition[0], movable=True, pen=(0, 0, 100))
       line.sigPositionChanged.connect(self.lineMoved)
       self.current.strip.plotWidget.addItem(line)
       self.linePoints.append(line)
@@ -193,19 +193,19 @@ class AlignToReference(QtGui.QWidget, Base):
 
   def turnOnPositionPicking(self):
     print('picking on')
-    self.current.registerNotify(self.setPositions, 'positions')
+    self.current.registerNotify(self.setPositions, 'cursorPosition')
     if self.lr:
       self.current.strip.plotWidget.addItem(self.lr)
 
   def turnOffPositionPicking(self):
     print('picking off')
-    self.current.unRegisterNotify(self.setPositions, 'positions')
+    self.current.unRegisterNotify(self.setPositions, 'cursorPosition')
     self.current.strip.plotWidget.removeItem(self.lr)
 
 
   def setPositions(self, positions):
     if len(self.linePoints) < 2:
-      line = pg.InfiniteLine(angle=90, pos=self.current.positions[0], movable=True, pen=(0, 0, 100))
+      line = pg.InfiniteLine(angle=90, pos=self.current.cursorPosition[0], movable=True, pen=(0, 0, 100))
       self.current.strip.plotWidget.addItem(line)
       self.linePoints.append(line)
       for i, line in enumerate(self.linePoints):
@@ -273,18 +273,18 @@ class WhittakerBaseline(QtGui.QWidget, Base):
 
   def turnOnPositionPicking(self):
     print('picking on')
-    self.current.registerNotify(self.setPositions, 'positions')
+    self.current.registerNotify(self.setPositions, 'cursorPosition')
     for linePoint in self.linePoints:
       self.current.strip.plotWidget.addItem(linePoint)
 
   def turnOffPositionPicking(self):
     print('picking off')
-    self.current.unRegisterNotify(self.setPositions, 'positions')
+    self.current.unRegisterNotify(self.setPositions, 'cursorPosition')
     for linePoint in self.linePoints:
       self.current.strip.plotWidget.removeItem(linePoint)
 
   def setPositions(self, positions):
-    line = pg.InfiniteLine(angle=90, pos=self.current.positions[0], movable=True, pen=(0, 0, 100))
+    line = pg.InfiniteLine(angle=90, pos=self.current.cursorPosition[0], movable=True, pen=(0, 0, 100))
     self.current.strip.plotWidget.addItem(line)
     self.linePoints.append(line)
     self.points.append(line.pos().x())
@@ -316,18 +316,18 @@ class SegmentalAlign(QtGui.QWidget, Base):
 
   def turnOnPositionPicking(self):
     print('picking on')
-    self.current.registerNotify(self.setPositions, 'positions')
+    self.current.registerNotify(self.setPositions, 'cursorPosition')
     for linePoint in self.linePoints:
       self.current.strip.plotWidget.addItem(linePoint)
 
   def turnOffPositionPicking(self):
     print('picking off')
-    self.current.unRegisterNotify(self.setPositions, 'positions')
+    self.current.unRegisterNotify(self.setPositions, 'cursorPosition')
     for linePoint in self.linePoints:
       self.current.strip.plotWidget.removeItem(linePoint)
 
   def setPositions(self, positions):
-    line = pg.InfiniteLine(angle=90, pos=self.current.positions[0], movable=True, pen=(0, 0, 100))
+    line = pg.InfiniteLine(angle=90, pos=self.current.cursorPosition[0], movable=True, pen=(0, 0, 100))
     # line.sigPositionChanged.connect(self.lineMoved)
     self.current.strip.plotWidget.addItem(line)
     self.linePoints.append(line)
@@ -484,18 +484,18 @@ class WhittakerSmooth(QtGui.QWidget, Base):
 
   def turnOnPositionPicking(self):
     print('picking on')
-    self.current.registerNotify(self.setPositions, 'positions')
+    self.current.registerNotify(self.setPositions, 'cursorPosition')
     for linePoint in self.linePoints:
       self.current.strip.plotWidget.addItem(linePoint)
 
   def turnOffPositionPicking(self):
     print('picking off')
-    self.current.unRegisterNotify(self.setPositions, 'positions')
+    self.current.unRegisterNotify(self.setPositions, 'cursorPosition')
     for linePoint in self.linePoints:
       self.current.strip.plotWidget.removeItem(linePoint)
 
   def setPositions(self, positions):
-    line = pg.InfiniteLine(angle=90, pos=self.current.positions[0], movable=True, pen=(0, 0, 100))
+    line = pg.InfiniteLine(angle=90, pos=self.current.cursorPosition[0], movable=True, pen=(0, 0, 100))
     self.current.strip.plotWidget.addItem(line)
     self.linePoints.append(line)
     self.points.append(line.pos().x())

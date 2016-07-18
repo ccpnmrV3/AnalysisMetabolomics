@@ -85,12 +85,12 @@ class IntegrationWidget(QtGui.QWidget, Base):
 
   def setPositions(self, positions):
     if len(self.linePoints) % 2 == 0 or len(self.linePoints) == 0:
-      line = pg.InfiniteLine(angle=90, pos=self.current.positions[0], movable=True, pen=(0, 0, 100))
+      line = pg.InfiniteLine(angle=90, pos=self.current.cursorPosition[0], movable=True, pen=(0, 0, 100))
       self.current.strip.plotWidget.addItem(line)
       self.linePoints.append(line)
     else:
-      newIntegrationArea = pg.LinearRegionItem(values=[self.linePoints[-1].pos().x(), self.current.positions[0]])
-      line = pg.InfiniteLine(angle=90, pos=self.current.positions[0], movable=True, pen=(0, 0, 100))
+      newIntegrationArea = pg.LinearRegionItem(values=[self.linePoints[-1].pos().x(), self.current.cursorPosition[0]])
+      line = pg.InfiniteLine(angle=90, pos=self.current.cursorPosition[0], movable=True, pen=(0, 0, 100))
       self.current.strip.plotWidget.addItem(newIntegrationArea)
       self.current.strip.plotWidget.removeItem(self.linePoints[-1])
       self.integrationRegions.append(newIntegrationArea)
