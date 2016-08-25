@@ -30,9 +30,10 @@ class Metabolomics(Framework):
 
 
   def showPipeline(self, position='bottom', relativeTo=None):
-    from ccpn.AnalysisMetabolomics.MetabolomicsPipeline import MetabolomicsModule
-    pipelineModule = MetabolomicsModule(self.ui.mainWindow, project=self.project)
-    self.ui.mainWindow.moduleArea.addModule(pipelineModule, position=position)
-    self.pythonConsole.writeConsoleCommand("application.showMetabolomicsPipeline()")
-    self.project._logger.info("application.showMetabolomicsPipeline()")
+    from ccpn.ui.gui.modules.PipelineModule import GuiPipeline
+    from ccpn.AnalysisScreen import guiPipeline as _gp
+    guiPipeline = GuiPipeline(application=self, pipelineMethods=_gp.__all__, project=self.project)
+    self.ui.mainWindow.moduleArea.addModule(guiPipeline, position=position)
 
+    self.ui.mainWindow.pythonConsole.writeConsoleCommand("application.showMetabolomicsPipeline()")
+    self.project._logger.info("application.showMetabolomicsPipeline()")
