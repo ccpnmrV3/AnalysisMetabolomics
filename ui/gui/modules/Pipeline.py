@@ -63,7 +63,6 @@ class GuiPipeline(CcpnModule):
 
   def __init__(self, application=None, pipelineMethods=None, project=None, templates=None, **kw):
     super(GuiPipeline, self)
-
     nameCount = 0
     for module in application.ui.mainWindow.moduleArea.findAll()[1].values():
       if hasattr(module, 'runPipeline'):
@@ -97,16 +96,16 @@ class GuiPipeline(CcpnModule):
     self.currentRunningPipeline = []
 
 
-  def _setModuleName(self):
-    pipelineModules = []
-    for module in self.mainWindow.moduleArea.findAll()[1].values():
-      print(module)
-      if hasattr(module, 'GuiPipeline'):
-        print('GuiPipeline')
-      if hasattr(module, 'runPipeline'):
-        print('runPipeline')
-      if isinstance(module, self):
-        print('isIST')
+  # def _setModuleName(self):
+  #   pipelineModules = []
+  #   for module in self.mainWindow.moduleArea.findAll()[1].values():
+  #     print(module)
+  #     if hasattr(module, 'GuiPipeline'):
+  #       print('GuiPipeline')
+  #     if hasattr(module, 'runPipeline'):
+  #       print('runPipeline')
+  #     if isinstance(module, self):
+  #       print('isIST')
 
 
 
