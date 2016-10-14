@@ -17,9 +17,9 @@ from ccpn.ui.gui.widgets.PulldownList import PulldownList
 from ccpn.ui.gui.widgets.ScrollArea import ScrollArea
 from ccpn.ui.gui.widgets.FileDialog import FileDialog
 from ccpn.ui.gui.widgets.RadioButtons import RadioButtons
-
+from ccpn.ui.gui.widgets.ListWidget import ListWidget
 from ccpn.AnalysisMetabolomics.ui.gui.widgets.PipelineWidgets import PipelineDropArea, PipelineBox
-
+import pandas as pd
 
 Qt = QtCore.Qt
 Qkeys = QtGui.QKeySequence
@@ -29,51 +29,23 @@ transparentStyle = "background-color: transparent; border: 0px solid transparent
 selectMethodLabel = '< Select Method >'
 
 
-class PipelineWorker(QtCore.QObject):
-  'Object managing the  auto run pipeline simulation'
-
-  stepIncreased = QtCore.pyqtSignal(int)
-
-
-  def __init__(self):
-    super(PipelineWorker, self).__init__()
-    self._step = 0
-    self._isRunning = True
-    self._maxSteps = 200000
-
-
-  def task(self):
-    if not self._isRunning:
-      self._isRunning = True
-      self._step = 0
-
-    while self._step < self._maxSteps and self._isRunning == True:
-      self._step += 1
-      self.stepIncreased.emit(self._step)
-      time.sleep(0.1)  # if this time is too small or disabled you won't be able to stop the thread!
-
-
-  def stop(self):
-    self._isRunning = False
-    print('Pipeline Thread stopped')
-
-
 
 class GuiPipeline(CcpnModule):
 
   def __init__(self, application=None, pipelineMethods=None, project=None, templates=None, **kw):
     super(GuiPipeline, self)
+
     nameCount = 0
     for module in application.ui.mainWindow.moduleArea.findAll()[1].values():
       if hasattr(module, 'runPipeline'):
         nameCount += 1
-
     name = 'Pipeline-' + str(nameCount)
 
     self.project = project
     self.application = application
     self.mainWindow = application.ui.mainWindow
 
+    self.current = self.application.current
     self.generalPreferences = self.application.preferences.general
     self.templatePath = self.generalPreferences.auxiliaryFilesPath
     self.currentPipelineBoxNames = []
@@ -91,23 +63,16 @@ class GuiPipeline(CcpnModule):
     self._setIcons()
     self._setMainLayout()
     self._setPipelineThread()
+    self.settings = SettingWidgets
     self._setSecondaryLayouts()
     self.pipelineWorker.stepIncreased.connect(self.runPipeline)
     self.currentRunningPipeline = []
 
-
-  # def _setModuleName(self):
-  #   pipelineModules = []
-  #   for module in self.mainWindow.moduleArea.findAll()[1].values():
-  #     print(module)
-  #     if hasattr(module, 'GuiPipeline'):
-  #       print('GuiPipeline')
-  #     if hasattr(module, 'runPipeline'):
-  #       print('runPipeline')
-  #     if isinstance(module, self):
-  #       print('isIST')
+    self.registerNotifiers()
+    self.interactor = PipelineInteractor(self.application)
 
 
+  ''' General '''
 
   def _getPipelineMethods(self):
     '''
@@ -116,30 +81,116 @@ class GuiPipeline(CcpnModule):
     obj = any subclass of pipeline Box
     '''
     from ccpn.framework.lib.ExtensionLoader import getPipes
-
     extensions = getPipes()
     if extensions:
-      return {extension.METHODNAME:extension for extension in extensions}
+      return {extension.METHODNAME: extension for extension in extensions}
     else:
       return {}
-
 
   def _getPipelineTemplates(self, templates):
     if templates is not None:
       return templates
     else:
-      return {'Empty':'Empty'}
-
+      return {'Empty': 'Empty'}
 
   def _setAppSpecificMethods(self):
     '''set data in pull down if selected application specific method '''
-    filteredMethod = [selectMethodLabel,]
+    filteredMethod = [selectMethodLabel, ]
     for method in self.pipelineMethods.values():
       if hasattr(method, 'applicationsSpecific'):
         applicationsSpecific = method.applicationsSpecific(method)
         if self.application.applicationName in applicationsSpecific:
           filteredMethod.append(method.methodName(method))
     self.methodPulldown.setData(sorted(filteredMethod))
+
+
+  def _setPipelineThread(self):
+    self.pipelineThread = QtCore.QThread()
+    self.pipelineThread.start()
+    self.pipelineWorker = PipelineWorker()
+    self.pipelineWorker.moveToThread(self.pipelineThread)
+
+
+  def openJsonFile(self, path):
+    if path is not None:
+      with open(str(path), 'r') as jf:
+        data = json.load(jf)
+      return data
+
+
+  def _getPathFromDialogBox(self):
+    dialog = FileDialog(self, text="Open Pipeline",
+                        acceptMode=FileDialog.AcceptOpen, preferences=self.generalPreferences)
+    return dialog.selectedFile()
+
+
+  def _getPipelineBoxesFromFile(self, params, boxesNames):
+    pipelineBoxes = []
+    for i in params:
+      for key, value in i.items():
+        if value[0].upper() in boxesNames:
+          pipelineMethod = self.pipelineMethods[key]
+          pipelineBox = self._addMethodBox(name=value[0], selected=pipelineMethod.METHODNAME, params=value[1])
+          pipelineBox.setActive(value[2])
+          pipelineBoxes.append(pipelineBox)
+    return pipelineBoxes
+
+
+  def _openSavedPipeline(self):
+    path = self._getPathFromDialogBox()
+    state, params, boxesNames, pipelineSettings = self.openJsonFile(path)
+    pipelineBoxes = self._getPipelineBoxesFromFile(params, boxesNames)
+    self._closeExistingPipelineBoxes()
+    for pipelineBox in pipelineBoxes:
+      self.pipelineArea.addBox(pipelineBox)
+    self.pipelineArea.restoreState(state)
+    self.pipelineSettingsParams = OrderedDict(pipelineSettings)
+    self._setSettingsParams()
+
+  def _saveToJson(self, jsonPath):
+    with open(jsonPath, 'w') as fp:
+      json.dump(self.jsonData, fp, indent=2)
+      fp.close()
+    print('File saved in: ', self.getJsonPath())
+
+
+  def runPipeline(self):
+    self.currentRunningPipeline = [('init', self.interactor.getDataFrame())]
+    if len(self.pipelineArea.findAll()[1])>0:
+      widgets = self.pipelineArea.orderedBoxes(self.pipelineArea.topContainer)
+      for widget in widgets:
+        if widget.isActive():
+          # TODO: Handle various types of input here, for now, a DF is all
+
+          pipe = widget.pipe
+
+          if pipe.guiModule is not None:
+            if hasattr(widget, 'updatePipeParams'):
+              widget.updatePipeParams()
+
+          result = pipe.run(self.currentRunningPipeline[-1][1], **pipe._kwargs)
+
+          method = (pipe, result)
+          self.currentRunningPipeline.append(method)
+
+  def registerNotifiers(self):
+    self.project.registerNotifier('Spectrum', 'create', self.refreshInputDataList)
+    self.project.registerNotifier('Spectrum', 'change', self.refreshInputDataList)
+    self.project.registerNotifier('Spectrum', 'rename', self.refreshInputDataList)
+    self.project.registerNotifier('Spectrum', 'delete', self.refreshInputDataList)
+
+  def setDataSelection(self):
+
+    self.interactor.sources = [s.text() for s in self.inputDataList.selectedItems()]
+
+  def getData(self):
+    """
+    Should this move to the interactors???
+    """
+    return [self.project.getByPid('SP:{}'.format(source))
+            for source in self.interactor.sources]
+
+  '''Gui Widgets '''
 
 
   def keyPressEvent(self, KeyEvent):
@@ -188,49 +239,11 @@ class GuiPipeline(CcpnModule):
     self.settingFrameLayout.addStretch(1)
     self.settingFrameLayout.addWidget(self.settingButtons)
 
-
-  def _setPipelineThread(self):
-    self.pipelineThread = QtCore.QThread()
-    self.pipelineThread.start()
-    self.pipelineWorker = PipelineWorker()
-    self.pipelineWorker.moveToThread(self.pipelineThread)
-
-
-  def openJsonFile(self, path):
-    if path is not None:
-      with open(str(path), 'r') as jf:
-        data = json.load(jf)
-      return data
-
-
-  def _getPathFromDialogBox(self):
-    dialog = FileDialog(self, text="Open Pipeline",
-                        acceptMode=FileDialog.AcceptOpen, preferences=self.generalPreferences)
-    return dialog.selectedFile()
-
-
-  def _getPipelineBoxesFromFile(self, params, boxesNames):
-    pipelineBoxes = []
-    for i in params:
-      for key, value in i.items():
-        if value[0].upper() in boxesNames:
-          pipelineMethod = self.pipelineMethods[key]
-          pipelineBox = pipelineMethod(parent=self, name = value[0], params = value[1],  project=self.project)
-          pipelineBox.setActive(value[2])
-          pipelineBoxes.append(pipelineBox)
-    return pipelineBoxes
-
-
-  def _openSavedPipeline(self):
-    path = self._getPathFromDialogBox()
-    state, params, boxesNames, pipelineSettings = self.openJsonFile(path)
-    pipelineBoxes = self._getPipelineBoxesFromFile(params, boxesNames)
-    self._closeExistingPipelineBoxes()
-    for pipelineBox in pipelineBoxes:
-      self.pipelineArea.addBox(pipelineBox)
-    self.pipelineArea.restoreState(state)
-    self.pipelineSettingsParams = OrderedDict(pipelineSettings)
-    self._setSettingsParams()
+  def eventFilter(self, source, event):
+    '''Filter to disable the wheel event in the methods pulldown. Otherwise each scroll would add a box!'''
+    if event.type() == QtCore.QEvent.Wheel:
+      return True
+    return False
 
 
   def _addMenuToOpenButton(self):
@@ -245,6 +258,22 @@ class GuiPipeline(CcpnModule):
       templatesItem.setMenu(subMenu)
     openButton.setMenu(menu)
 
+  def openSaveDialogPopup(self):
+    '''directory is actually the default filename in the dialog '''
+    self.saveDialog = FileDialog(directory=self.pipelineNameLabel.text()+'.json', fileMode=FileDialog.AnyFile, filter ="json (*.json *.)", text='Save as ',
+                        acceptMode=FileDialog.AcceptSave, preferences=self.application.preferences.general, )
+
+  def getJsonPath(self):
+    return self.saveDialog.selectedFile()
+
+
+  def _addMenuToSaveButton(self):
+    saveButton = self.settingButtons.buttons[1]
+    menu = QtGui.QMenu()
+    saveItem = menu.addAction('Save')
+    saveAsItem = menu.addAction('Save As')
+    saveButton.setMenu(menu)
+
 
   def _closeExistingPipelineBoxes(self):
     boxes = self.pipelineArea.findAll()[1].values()
@@ -255,6 +284,7 @@ class GuiPipeline(CcpnModule):
 
   def _savePipeline(self):
     '''jsonData = [{pipelineArea.state}, [boxes widgets params], [currentBoxesNames], pipelineSettingsParams]   '''
+    self.openSaveDialogPopup()
     currentBoxesNames = list(self.pipelineArea.findAll()[1].keys())
     if len(currentBoxesNames)>0:
       self.jsonData = []
@@ -263,16 +293,7 @@ class GuiPipeline(CcpnModule):
       self.jsonData.append(self.widgetsParams)
       self.jsonData.append(currentBoxesNames)
       self.jsonData.append(list(self.pipelineSettingsParams.items()))
-
-      self._saveToJson()
-
-
-  def _saveToJson(self):
-    self.jsonPath = str(self.savePipelineLineEdit.text()) + '/' + str(self.pipelineNameLabel.text()) + '.json'
-    with open(self.jsonPath, 'w') as fp:
-      json.dump(self.jsonData, fp, indent=2)
-      fp.close()
-    print('File saved in: ', self.jsonPath)
+      self._saveToJson(self.getJsonPath())
 
 
   def _createPipelineWidgets(self):
@@ -294,13 +315,6 @@ class GuiPipeline(CcpnModule):
     self.methodPulldownData.insert(0, selectMethodLabel)
     self.methodPulldown.setData(self.methodPulldownData)
     self.methodPulldown.activated[str].connect(self._selectMethod)
-
-
-  def eventFilter(self, source, event):
-    '''Filter to disable the wheel event in the methods pulldown. Otherwise each scroll would add a box!'''
-    if event.type() == QtCore.QEvent.Wheel:
-      return True
-    return False
 
 
   def _addGoButtonWidget(self):
@@ -326,19 +340,6 @@ class GuiPipeline(CcpnModule):
     self.pipelineAreaLayout.addWidget(scroll)
 
 
-  def runPipeline(self):
-    self.currentRunningPipeline = [('init', None)]  # TODO: Fix this so it feeds an initial DF in
-    if len(self.pipelineArea.findAll()[1])>0:
-      widgets = self.pipelineArea.orderedBoxes(self.pipelineArea.topContainer)
-      for widget in widgets:
-        if widget.isActive():
-          # TODO: Handle various types of input here, for now, a DF is all
-          pipe = widget.pipe
-          result = pipe.run(self.currentRunningPipeline[-1][1], **pipe._kwargs)
-          method = (pipe, result)
-          self.currentRunningPipeline.append(method)
-
-
   def _selectMethod(self, selected):
 
     if str(selected) == selectMethodLabel:
@@ -358,137 +359,49 @@ class GuiPipeline(CcpnModule):
     return str(boxName) + '-' + str(counter[str(boxName)])
 
 
-  def _addMethodBox(self, name, selected):
+  def _addMethodBox(self, name, selected, params=None):
     # This is where we should extract the GUI part of the extension, or create one if needed.
     objMethod = self.pipelineMethods[selected](application=self.application)
     position = self.pipelineSettingsParams['addPosit']
 
     try:
-      pipelineWidget = objMethod.guiModule(parent=self, name=name, params=None, project=self.project)
-    except (AttributeError, TypeError):
-      pipelineWidget = self._autoGeneratePipelineWidget(objMethod)
+      pipelineWidget = objMethod.guiModule(parent=self, pipe=objMethod, name=name, params=params, project=self.project)
+      pipelineWidget.updatePipeParams()
+      pipe = pipelineWidget.pipe
 
-    # self.pipelineArea.addDock(pipelineWidget, position=position)
-    self.pipelineArea.addPipe(objMethod, position=position)
+      if params is not None:
+        for key, value in params.items():
+          pipe._updateRunArgs(key, value)
+        pipelineWidget._setParams(**pipe._kwargs)
+
+
+    except (AttributeError, TypeError):
+      pipelineWidget = PipelineWidgetAutoGenerator._generateWidget(self, objMethod)
+
+
+    self.pipelineArea.addDock(pipelineWidget, position=position)
+    # self.pipelineArea.addPipe(objMethod, position=position)
     autoActive = self.pipelineSettingsParams['autoActive']
     pipelineWidget.label.checkBox.setChecked(autoActive)
+    return pipelineWidget
 
-
-  def _autoGeneratePipelineWidget(self, objMethod):
-    from functools import partial
-    objMethod.widget = widget = PipelineBox(parent=self, pipe=objMethod)
-    # ndac = self._getNonDefaultArgCount(objMethod.run) -1  # -1 so we don't count the self arg
-    #
-    params = objMethod.params
-    if params is not None:
-
-      columns = 4
-      from collections import Mapping, Iterable
-      from ccpn.ui.gui.widgets.Label import Label
-      for i, param in enumerate(params):
-        assert isinstance(param, Mapping)
-
-        row = int(i/columns)
-        column = i%columns
-
-        from ccpn.ui.gui.widgets.Frame import Frame
-        frame = Frame(widget)
-        frame.setObjectName('autoGeneratedFrame')
-        frameColour = '#BEC4F3' if self.application.preferences.general.colourScheme == 'dark' else '#000000'
-        frame.setStyleSheet('Frame#autoGeneratedFrame {{margin:5px; border:1px solid {};}}'.format(frameColour))
-        widget.mainLayout.addWidget(frame, row, column)
-
-        l = Label(frame, param.get('label', param['variable']), grid=(0, 0))
-        l.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
-        if isinstance(param['value'], str):
-          from ccpn.ui.gui.widgets.LineEdit import LineEdit
-          le = LineEdit(frame, text=param['value'], grid=(0, 1))
-          callback = partial(objMethod._updateRunArgs, param['variable'])
-          le.textChanged.connect(callback)
-          callback(le.get())
-
-        elif isinstance(param['value'], bool):
-          from ccpn.ui.gui.widgets.CheckBox import CheckBox
-          cb = CheckBox(frame, grid=(0, 1))
-          cb.setChecked(param['value'])
-          callback = partial(objMethod._updateRunArgs, param['variable'], cb.get())
-          cb.setCallback(callback)
-          callback()
-
-        elif isinstance(param['value'], Iterable):
-          if isinstance(param['value'][0], str):
-            from ccpn.ui.gui.widgets.PulldownList import PulldownList
-            pdl = PulldownList(frame, texts=param['value'], grid=(0, 1))
-            pdl.set(param.get('default', param['value'][0]))
-            callback = partial(objMethod._updateRunArgs, param['variable'])
-            pdl.setCallback(callback)
-            callback(pdl.get())
-
-          elif isinstance(param['value'][0], Iterable):
-            assert all([len(v)==2 for v in param['value']])
-            assert all([isinstance(v[0], str) for v in param['value']])
-            from ccpn.ui.gui.widgets.PulldownList import PulldownList
-            t, o = zip(*param['value'])
-            pdl = PulldownList(frame, texts=t, objects=o, grid=(0, 1))
-            pdl.set(param.get('default', param['value'][0]))
-            callback = partial(objMethod._updateRunArgs, param['variable'])
-            pdl.setCallback(callback)
-            callback(pdl.get())
-
-          elif isinstance(param['value'][0], int):
-            assert len(param['value']) == 2
-            from ccpn.ui.gui.widgets.Spinbox import Spinbox
-            sb = Spinbox(frame, min=param['value'][0], max=param['value'][1], grid=(0, 1))
-            sb.setSingleStep(param.get('stepsize', 1))
-            sb.setValue(param.get('default', param['value'][0]))
-            callback = partial(objMethod._updateRunArgs, param['variable'])
-            sb.valueChanged.connect(callback)
-            callback(sb.value())
-
-          elif isinstance(param['value'][0], float):
-            assert len(param['value']) == 2
-            from ccpn.ui.gui.widgets.DoubleSpinbox import DoubleSpinbox
-            dsb = DoubleSpinbox(frame, min=param['value'][0], max=param['value'][1], grid=(0, 1))
-            defaultStepSize = (param['value'][1] - param['value'][0])/100
-            dsb.setSingleStep(param.get('stepsize', defaultStepSize))
-            dsb.setValue(param.get('default', param['value'][0]))
-            callback = partial(objMethod._updateRunArgs, param['variable'])
-            dsb.valueChanged.connect(callback)
-            callback(dsb.value())
-          else:
-            raise NotImplementedError(param)
-        else:
-          raise NotImplementedError(param)
-
-    return widget
-
-  def _getNonDefaultArgCount(self, f:callable) -> int:  # TODO: Move this to util
-    import inspect
-    count = 0
-    sig = inspect.signature(f)
-    for _, p in sig.parameters.items():
-      if p.default == inspect._empty:
-        count += 1
-    return count
-
-  def _anyArgsVarPositional(self, f:callable) -> int:
-    import inspect
-    sig = inspect.signature(f)
-    for _, p in sig.parameters.items():
-      if p.kind == inspect._ParameterKind.VAR_POSITIONAL:
-        return True
-    return False
-
-
-  ''' PIPELINE SETTINGS '''
 
   def _pipelineBoxesWidgetParams(self, currentBoxesNames):
     self.savePipelineParams = []
     for boxName in currentBoxesNames:
       boxMethod = self.pipelineArea.docks[str(boxName)]
       state = boxMethod.isActive()
-      params = boxMethod.getWidgetsParams()
-      newDict = {boxMethod.methodName(): (boxName, params, state)}
+      if boxMethod.pipe.guiModule is not None:
+        boxMethod.updatePipeParams()
+
+      params = boxMethod.pipe._kwargs
+      for key, value in params.items():
+        for item in boxMethod.pipe.params:
+          if item['variable'] == key:
+            item['default'] = value
+
+
+      newDict = {boxMethod.pipe.METHODNAME: (boxName, params, state)}
       self.savePipelineParams.append(newDict)
     return self.savePipelineParams
 
@@ -496,7 +409,7 @@ class GuiPipeline(CcpnModule):
   def _createSettingWidgets(self):
     self.settingsWidgets = []
     self._createSettingsGroupBox()
-    self._createAllSettingWidgets()
+    self.settings._createAllSettingWidgets(self)
     self._addWidgetsToLayout(self.settingsWidgets, self.settingWidgetsLayout)
     self.settingFrame.hide()
     self._hideSettingWidget()
@@ -511,6 +424,105 @@ class GuiPipeline(CcpnModule):
     self.pipelineAreaLayout.addWidget(self.settingFrame, 1)
 
 
+  def settingsPipelineWidgets(self):
+    if self.settingFrame.isHidden():
+      self._showSettingWidget()
+    else:
+      self._cancelSettingsCallBack()
+
+  def _updateSettingsParams(self):
+    name = str(self.pipelineReNameTextEdit.text())
+    rename = str(self.pipelineReNameTextEdit.text())
+    savePath = str(self.savePipelineLineEdit.text())
+    autoRun = self.autoCheckBox.get()
+    addPosit = self.addBoxPosition.get()
+    autoActive = self.autoActiveCheckBox.get()
+
+    params = OrderedDict([
+      ('name', name),
+      ('rename', rename),
+      ('savePath', savePath),
+      ('autoRun', autoRun),
+      ('addPosit', addPosit),
+      ('autoActive', autoActive)
+    ])
+    self.pipelineSettingsParams = params
+
+  def setInputDataList(self, imputData=None):
+    self.inputDataList.clear()
+    if imputData is not None:
+      sdo = [s.name for s in imputData]
+      self.inputDataList.addItems(sdo)
+
+
+  def getInputData(self):
+    '''Get 1D Spectra from project'''
+    sd = []
+    sd += [s for s in self.project.spectra if
+           (len(s.axisCodes) == 1) and (s.axisCodes[0].startswith('H'))]
+    return sd
+
+  def refreshInputDataList(self, *args):
+    try:
+      self.setInputDataList(self.getInputData())
+    except:
+      print('No input data available')
+
+  def _setSettingsParams(self):
+    widgets = [self.pipelineNameLabel.setText, self.pipelineReNameTextEdit.setText,
+               self.savePipelineLineEdit.setText, self.autoCheckBox.setChecked, self.addBoxPosition.set]
+
+    for widget, value in zip(widgets, self.pipelineSettingsParams.values()):
+      widget(value)
+
+
+  def _okSettingsCallBack(self):
+    self._displayStopButton()
+    self._updateSettingsParams()
+    self._setSettingsParams()
+    self._hideSettingWidget()
+    self.setDataSelection()
+
+
+  def _cancelSettingsCallBack(self):
+    self._setSettingsParams()
+    self._hideSettingWidget()
+
+
+  def _hideSettingWidget(self):
+    self.settingFrame.hide()
+    for widget in self.settingsWidgets:
+      widget.hide()
+
+
+  def _showSettingWidget(self):
+    self.settingFrame.show()
+    for widget in self.settingsWidgets:
+      widget.show()
+
+  def _displayStopButton(self):
+    if self.autoCheckBox.isChecked():
+      self.goButton.buttons[0].show()
+      self.goButton.buttons[1].show()
+      self.goButton.buttons[2].hide()
+    else:
+      self.goButton.buttons[0].hide()
+      self.goButton.buttons[1].hide()
+      self.goButton.buttons[2].show()
+
+  def filterMethodPopup(self):
+    FilterMethods(parent=self).exec()
+
+  def _addWidgetsToLayout(self, widgets, layout):
+    count = int(len(widgets) / 2)
+    self.positions = [[i + 1, j] for i in range(count) for j in range(2)]
+    for position, widget in zip(self.positions, widgets):
+      i, j = position
+      layout.addWidget(widget, i, j)
+
+
+class SettingWidgets(GuiPipeline):
+
   def _createAllSettingWidgets(self):
     # R0w 0
     self.pipelineReNameLabel = Label(self, 'Name')
@@ -520,8 +532,11 @@ class GuiPipeline(CcpnModule):
     # R0w 1
     self.inputDataLabel = Label(self, 'Input Data')
     self.settingsWidgets.append(self.inputDataLabel)
-    self.inputDataPulldownList = PulldownList(self, '')
-    self.settingsWidgets.append(self.inputDataPulldownList)
+    self.inputDataList = ListWidget(self, )
+    # self.inputDataList.setSelectionMode(QtGui.QAbstractItemView.ExtendedSelection)
+    self.setInputDataList(self.getInputData())
+
+    self.settingsWidgets.append(self.inputDataList)
     # R0w 2
     self.autoLabel = Label(self, 'Auto Run')
     self.settingsWidgets.append(self.autoLabel)
@@ -544,106 +559,18 @@ class GuiPipeline(CcpnModule):
     self.autoActiveCheckBox = CheckBox(self, )
     self.autoActiveCheckBox.setChecked(True)
     self.settingsWidgets.append(self.autoActiveCheckBox)
-
     # R0w 6
     self.filter = Label(self, 'Methods filter')
     self.settingsWidgets.append(self.filter)
     self.filterButton = Button(self, icon = self.filterIcon, callback = self.filterMethodPopup)
     self.filterButton.setStyleSheet(transparentStyle)
     self.settingsWidgets.append(self.filterButton)
-
     # R0w 7
     self.spacerLabel = Label(self, '')
     self.spacerLabel.setMaximumHeight(1)
     self.settingsWidgets.append(self.spacerLabel)
     self.applyCancelsettingButtons = ButtonList(self, texts=['Cancel', 'Ok'],callbacks=[self._cancelSettingsCallBack, self._okSettingsCallBack], direction='H')
     self.settingsWidgets.append(self.applyCancelsettingButtons)
-
-
-  def settingsPipelineWidgets(self):
-    if self.settingFrame.isHidden():
-      self._showSettingWidget()
-    else:
-      self._cancelSettingsCallBack()
-
-
-  def _updateSettingsParams(self):
-    name = str(self.pipelineReNameTextEdit.text())
-    rename = str(self.pipelineReNameTextEdit.text())
-    savePath = str(self.savePipelineLineEdit.text())
-    autoRun = self.autoCheckBox.get()
-    addPosit = self.addBoxPosition.get()
-    autoActive = self.autoActiveCheckBox.get()
-
-    params = OrderedDict([
-      ('name', name),
-      ('rename', rename),
-      ('savePath', savePath),
-      ('autoRun', autoRun),
-      ('addPosit', addPosit),
-      ('autoActive', autoActive)
-    ])
-    self.pipelineSettingsParams = params
-
-
-  def _setSettingsParams(self):
-    widgets = [self.pipelineNameLabel.setText, self.pipelineReNameTextEdit.setText,
-               self.savePipelineLineEdit.setText, self.autoCheckBox.setChecked, self.addBoxPosition.set]
-
-    for widget, value in zip(widgets, self.pipelineSettingsParams.values()):
-      widget(value)
-
-
-  def _renamePipeline(self):
-    self.pipelineName = self.lineEdit.text()
-
-
-  def _okSettingsCallBack(self):
-    self._displayStopButton()
-    self._updateSettingsParams()
-    self._setSettingsParams()
-    self._hideSettingWidget()
-
-
-  def _cancelSettingsCallBack(self):
-    self._setSettingsParams()
-    self._hideSettingWidget()
-
-
-  def _hideSettingWidget(self):
-    self.settingFrame.hide()
-    for widget in self.settingsWidgets:
-      widget.hide()
-
-
-  def _showSettingWidget(self):
-    self.settingFrame.show()
-    for widget in self.settingsWidgets:
-      widget.show()
-
-
-  def _displayStopButton(self):
-    if self.autoCheckBox.isChecked():
-      self.goButton.buttons[0].show()
-      self.goButton.buttons[1].show()
-      self.goButton.buttons[2].hide()
-    else:
-      self.goButton.buttons[0].hide()
-      self.goButton.buttons[1].hide()
-      self.goButton.buttons[2].show()
-
-
-  def filterMethodPopup(self):
-    FilterMethods(parent=self).exec()
-
-
-  def _addWidgetsToLayout(self, widgets, layout):
-    count = int(len(widgets) / 2)
-    self.positions = [[i + 1, j] for i in range(count) for j in range(2)]
-    for position, widget in zip(self.positions, widgets):
-      i, j = position
-      layout.addWidget(widget, i, j)
-
 
 
 class FilterMethods(QtGui.QDialog):
@@ -733,3 +660,173 @@ class FilterMethods(QtGui.QDialog):
   def _okButtonCallBack(self):
     self.pipelineModule.methodPulldown.setData(self._getSelectedMethods())
     self.accept()
+
+class PipelineWidgetAutoGenerator():
+
+  def _generateWidget(self, objMethod):
+    from functools import partial
+    objMethod.widget = widget = PipelineBox(parent=self, pipe=objMethod)
+    # ndac = self._getNonDefaultArgCount(objMethod.run) -1  # -1 so we don't count the self arg
+
+    params = objMethod.params
+    if params is not None:
+
+      columns = 4
+      from collections import Mapping, Iterable
+      from ccpn.ui.gui.widgets.Label import Label
+      for i, param in enumerate(params):
+        assert isinstance(param, Mapping)
+
+        row = int(i / columns)
+        column = i % columns
+
+        from ccpn.ui.gui.widgets.Frame import Frame
+        frame = Frame(widget)
+        frame.setObjectName('autoGeneratedFrame')
+        frameColour = '#BEC4F3' if self.application.preferences.general.colourScheme == 'dark' else '#000000'
+        frame.setStyleSheet('Frame#autoGeneratedFrame {{margin:5px; border:1px solid {};}}'.format(frameColour))
+        widget.mainLayout.addWidget(frame, row, column)
+
+        l = Label(frame, param.get('label', param['variable']), grid=(0, 0))
+        l.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+        if isinstance(param['value'], str):
+          from ccpn.ui.gui.widgets.LineEdit import LineEdit
+          le = LineEdit(frame, grid=(0, 1))
+          le.setText( param['default'])
+          callback = partial(objMethod._updateRunArgs, param['variable'])
+          le.textChanged.connect(callback)
+          callback(le.get())
+
+        elif isinstance(param['value'], bool):
+          from ccpn.ui.gui.widgets.CheckBox import CheckBox
+          cb = CheckBox(frame, checked=param['value'], grid=(0, 1))
+          cb.stateChanged.connect(partial(objMethod._updateRunArgs, param['variable']))
+          cb.setCheckState(param['default'])
+
+
+        elif isinstance(param['value'], Iterable):
+          if isinstance(param['value'][0], str):
+            from ccpn.ui.gui.widgets.PulldownList import PulldownList
+            pdl = PulldownList(frame, texts=param['value'], grid=(0, 1))
+            pdl.set(param.get('default', param['value'][0]))
+            callback = partial(objMethod._updateRunArgs, param['variable'])
+            pdl.setCallback(callback)
+            callback(pdl.get())
+          elif isinstance(param['value'][0], tuple):
+            if isinstance(param['value'][0][1], bool):
+              from ccpn.ui.gui.widgets.RadioButtons import RadioButtons
+              t, b = zip(*param['value'])
+              rb = RadioButtons(frame, texts=t,  grid=(0, 1))
+              rb.set(param['default'])
+              rb.buttonGroup.buttonClicked[QtGui.QAbstractButton].connect(partial(PipelineWidgetAutoGenerator.selectedRadioButton, param=param,objMethod=objMethod))
+
+            else:
+              assert all([len(v) == 2 for v in param['value']])
+              assert all([isinstance(v[0], str) for v in param['value']])
+              from ccpn.ui.gui.widgets.PulldownList import PulldownList
+              t, o = zip(*param['value'])
+              pdl = PulldownList(frame, texts=t, objects=o, grid=(0, 1))
+              pdl.set(param.get('default', param['value'][0]))
+              callback = partial(objMethod._updateRunArgs, param['variable'])
+              pdl.setCallback(callback)
+              callback(pdl.get())
+
+          elif isinstance(param['value'][0], int):
+            assert len(param['value']) == 2
+            from ccpn.ui.gui.widgets.Spinbox import Spinbox
+            sb = Spinbox(frame, min=param['value'][0], max=param['value'][1], grid=(0, 1))
+            sb.setSingleStep(param.get('stepsize', 1))
+            sb.setValue(param.get('default', param['value'][0]))
+            callback = partial(objMethod._updateRunArgs, param['variable'])
+            sb.valueChanged.connect(callback)
+            callback(sb.value())
+
+          elif isinstance(param['value'][0], float):
+            assert len(param['value']) == 2
+            from ccpn.ui.gui.widgets.DoubleSpinbox import DoubleSpinbox
+            dsb = DoubleSpinbox(frame, min=param['value'][0], max=param['value'][1], grid=(0, 1))
+            defaultStepSize = (param['value'][1] - param['value'][0]) / 100
+            dsb.setSingleStep(param.get('stepsize', defaultStepSize))
+            dsb.setValue(param.get('default', param['value'][0]))
+            callback = partial(objMethod._updateRunArgs, param['variable'])
+            dsb.valueChanged.connect(callback)
+            callback(dsb.value())
+          else:
+            raise NotImplementedError(param)
+        else:
+          raise NotImplementedError(param)
+
+    return widget
+
+  def selectedRadioButton(self, objMethod, param):
+    clicked = [b.text() for b in self.sender().buttons() if b.isChecked()]
+    objMethod._updateRunArgs(param['variable'], clicked[0])
+
+  def _getNonDefaultArgCount(self, f:callable) -> int:  # TODO: Move this to util
+    import inspect
+    count = 0
+    sig = inspect.signature(f)
+    for _, p in sig.parameters.items():
+      if p.default == inspect._empty:
+        count += 1
+    return count
+
+  def _anyArgsVarPositional(self, f:callable) -> int:
+    import inspect
+    sig = inspect.signature(f)
+    for _, p in sig.parameters.items():
+      if p.kind == inspect._ParameterKind.VAR_POSITIONAL:
+        return True
+    return False
+
+
+
+class PipelineInteractor:
+
+  def __init__(self, application):
+    self.project = application.project
+    self.sources = []
+
+  @property
+  def sources(self):
+    return self.__sources
+
+  @sources.setter
+  def sources(self, value):
+    self.__sources = value
+
+  def getData(self):
+    return [self.project.getByPid('SP:{}'.format(source))
+            for source in self.sources]
+
+  def getDataFrame(self):
+    return pd.DataFrame([x for x in self.getData()])
+
+
+class PipelineWorker(QtCore.QObject):
+  'Object managing the auto run pipeline simulation'
+
+  stepIncreased = QtCore.pyqtSignal(int)
+
+  def __init__(self):
+    super(PipelineWorker, self).__init__()
+    self._step = 0
+    self._isRunning = True
+    self._maxSteps = 200000
+
+
+  def task(self):
+    if not self._isRunning:
+      self._isRunning = True
+      self._step = 0
+
+    while self._step < self._maxSteps and self._isRunning == True:
+      self._step += 1
+      self.stepIncreased.emit(self._step)
+      time.sleep(0.1)  # if this time is too small or disabled you won't be able to stop the thread!
+
+
+  def stop(self):
+    self._isRunning = False
+    print('Pipeline Thread stopped')
+
