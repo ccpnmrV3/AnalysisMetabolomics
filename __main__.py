@@ -1,4 +1,4 @@
-__author__ = 'TJ'
+__author__ = 'TJ!'
 
 from ccpn.framework import Framework
 from ccpn.AnalysisMetabolomics.AnalysisMetabolomics import Metabolomics as Application
