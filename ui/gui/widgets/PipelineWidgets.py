@@ -1,13 +1,10 @@
-
 from PyQt4 import QtCore, QtGui
+from pyqtgraph.dockarea.Container import SplitContainer
+from pyqtgraph.dockarea.Dock import DockLabel, Dock, VerticalLabel
 from pyqtgraph.dockarea.DockArea import DockArea
 from pyqtgraph.dockarea.DockDrop import DockDrop
-from pyqtgraph.dockarea.Dock import DockLabel, Dock, VerticalLabel
-from pyqtgraph.dockarea.Container import SplitContainer
-from ccpn.ui.gui.widgets.Module import CcpnModule
+
 from ccpn.framework.lib.Pipe import Pipe
-
-
 
 PipelineBoxDragStyle = """Dock > QWidget {border: 1px solid #78FF00; border-radius: 1px;}"""
 

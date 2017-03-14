@@ -23,24 +23,17 @@ __version__ = ": 7686 $"
 #=========================================================================================
 
 
+import pyqtgraph as pg
 from PyQt4 import QtCore, QtGui
 
+from ccpn.ui.gui.modules.CcpnModule import CcpnModule
 from ccpn.ui.gui.widgets.Base import Base
 from ccpn.ui.gui.widgets.Button import Button
-from ccpn.ui.gui.widgets.Module import CcpnModule
-from ccpn.ui.gui.widgets.DoubleSpinbox import DoubleSpinbox
-from ccpn.ui.gui.widgets.Label import Label
-from ccpn.ui.gui.widgets.PulldownList import PulldownList
-from ccpn.ui.gui.widgets.LineEdit import LineEdit
 from ccpn.ui.gui.widgets.CheckBox import CheckBox
+from ccpn.ui.gui.widgets.Label import Label
+from ccpn.ui.gui.widgets.LineEdit import LineEdit
 from ccpn.ui.gui.widgets.ListWidget import ListWidget
-
-from ccpn.ui.gui.widgets.PlotWidget import PlotWidget
-
-from ccpn.AnalysisMetabolomics.lib.persistence import MetabolomicsPersistenceDict
-from ccpn.AnalysisMetabolomics.lib.decomposition import PCA
-
-import pyqtgraph as pg
+from ccpn.ui.gui.widgets.PulldownList import PulldownList
 
 
 # class PcaModule(CcpnModule, Base):

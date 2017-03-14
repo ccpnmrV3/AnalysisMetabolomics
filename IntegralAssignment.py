@@ -22,22 +22,14 @@ __version__ = ": 7686 $"
 # Start of code
 #=========================================================================================
 
-from PyQt4 import QtCore, QtGui
+from PyQt4 import QtGui
 
 from ccpn.ui.gui.widgets.Base import Base
 from ccpn.ui.gui.widgets.Button import Button
-from ccpn.ui.gui.widgets.Module import CcpnModule
-from ccpn.ui.gui.widgets.DoubleSpinbox import DoubleSpinbox
 from ccpn.ui.gui.widgets.Label import Label
-from ccpn.ui.gui.widgets.Table import ObjectTable, Column
 from ccpn.ui.gui.widgets.PulldownList import PulldownList
-from ccpn.ui.gui.widgets.RadioButton import RadioButton
-from ccpn.ui.gui.widgets.Spinbox import Spinbox
+from ccpn.ui.gui.widgets.Table import ObjectTable, Column
 
-from ccpn.ui.gui.modules.GuiTableGenerator import GuiTableGenerator
-from ccpn.ui.gui.modules.PeakTable import PeakListSimple
-
-import pyqtgraph as pg
 
 class IntegralAssignment(QtGui.QWidget):
 

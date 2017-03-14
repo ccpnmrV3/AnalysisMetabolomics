@@ -1,25 +1,25 @@
-from collections import OrderedDict
 import collections
 import json
 import time
+from collections import OrderedDict
 
+import pandas as pd
 from PyQt4 import QtCore, QtGui
 
-from ccpn.ui.gui.widgets.ButtonList import ButtonList
+from ccpn.AnalysisMetabolomics.ui.gui.widgets.PipelineWidgets import PipelineDropArea, PipelineBox
+from ccpn.ui.gui.modules.CcpnModule import CcpnModule
 from ccpn.ui.gui.widgets.Button import Button
+from ccpn.ui.gui.widgets.ButtonList import ButtonList
 from ccpn.ui.gui.widgets.CheckBox import CheckBox
-from ccpn.ui.gui.widgets.Module import CcpnModule
+from ccpn.ui.gui.widgets.FileDialog import FileDialog
 from ccpn.ui.gui.widgets.GroupBox import GroupBox
 from ccpn.ui.gui.widgets.Icon import Icon
 from ccpn.ui.gui.widgets.Label import Label
 from ccpn.ui.gui.widgets.LineEdit import LineEdit
-from ccpn.ui.gui.widgets.PulldownList import PulldownList
-from ccpn.ui.gui.widgets.ScrollArea import ScrollArea
-from ccpn.ui.gui.widgets.FileDialog import FileDialog
-from ccpn.ui.gui.widgets.RadioButtons import RadioButtons
 from ccpn.ui.gui.widgets.ListWidget import ListWidget
-from ccpn.AnalysisMetabolomics.ui.gui.widgets.PipelineWidgets import PipelineDropArea, PipelineBox
-import pandas as pd
+from ccpn.ui.gui.widgets.PulldownList import PulldownList
+from ccpn.ui.gui.widgets.RadioButtons import RadioButtons
+from ccpn.ui.gui.widgets.ScrollArea import ScrollArea
 
 Qt = QtCore.Qt
 Qkeys = QtGui.QKeySequence
