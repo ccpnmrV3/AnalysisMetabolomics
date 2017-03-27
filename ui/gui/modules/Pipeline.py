@@ -379,10 +379,11 @@ class GuiPipeline(CcpnModule):
     except (AttributeError, TypeError):
       from ccpn.ui.gui.lib.GuiGenerator import generateWidget
       widget = PipelineBox(parent=self, pipe=objMethod)
-      pipelineWidget = generateWidget(pipe.params, widget=widget,
+      if pipe.params is not None:
+        pipelineWidget = generateWidget(pipe.params, widget=widget,
                                       argsDict=widget._kwargs, columns=4)
-      # pipelineWidget = PipelineWidgetAutoGenerator._generateWidget(self, objMethod)
-
+      else:
+        pipelineWidget = widget
 
     self.pipelineArea.addDock(pipelineWidget, position=position)
     # self.pipelineArea.addPipe(objMethod, position=position)
