@@ -209,6 +209,9 @@ class PipelineBox(Dock, DockDrop):
     self.overlay = PipelineDropAreaOverlay(self)
     self._setMainLayout()
 
+    self._kwargs = {}
+
+
   def _setMainLayout(self):
     self.mainFrame = QtGui.QFrame()
     self.mainLayout = QtGui.QGridLayout()
