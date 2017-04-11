@@ -20,7 +20,7 @@ def getSpectrumCluster(spectra):
   pointCount = spectra[0].totalPointCounts[0]
   array1 = np.empty([len(spectra), pointCount])
   for i in range(len(spectra)):
-    array1[i] = spectra[i]._apiDataSource.getSliceData()
+    array1[i] = spectra[i].getSliceData()
 
   return array1
 
