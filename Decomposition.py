@@ -179,7 +179,7 @@ class Decomposition:
     self.__sourcesChanged = False
     sd = OrderedDict()
     for d in self.__sources:
-      sd[d] = self.project.getByPid('SP:{}'.format(d))._apiDataSource.get1dSpectrumData()
+      sd[d] = self.project.getByPid('SP:{}'.format(d)).get1dSpectrumData()
     l = [pd.Series(sd[name][1], index=sd[name][0], name=name) for name in sorted(sd.keys())]
     self.__data = pd.concat(l, axis=1).T
 

@@ -97,7 +97,7 @@ class MetabolomicsModule(CcpnModule, Base):
         pipelineFunctions.append(params)
     data = self.project.getByPid(self.goArea.spectrumGroupPulldown.currentText())
     # spectrumPids = [spectrum.pid for spectrum in data.spectra]
-    spectraByPid = OrderedDict(((spectrum.pid, spectrum._apiDataSource.get1dSpectrumData())
+    spectraByPid = OrderedDict(((spectrum.pid, spectrum.get1dSpectrumData())
                                 for spectrum in data.spectra))
     # print(pipelineFunctions)
     print(self.goArea.pipelineName)

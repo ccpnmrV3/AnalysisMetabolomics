@@ -108,7 +108,7 @@ class IntegrationWidget(QtGui.QWidget, Base):
     integralLines = [(i.lines[0].pos().x(), i.lines[1].pos().x()) for i in self.integrationRegions]
     spectra = [spectrumView.spectrum for spectrumView in self.current.strip.spectrumViews]
     for spectrum in spectra:
-      spectrumData = spectrum._apiDataSource.get1dSpectrumData()
+      spectrumData = spectrum.get1dSpectrumData()
       for integralPair in integralLines:
         xPositions = numpy.where(numpy.logical_and(numpy.array(spectrumData[0])<integralPair[0], numpy.array(spectrumData[0])>integralPair[1]))
         yData = numpy.cumsum(spectrumData[1][xPositions[0]])
