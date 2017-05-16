@@ -32,18 +32,19 @@ selectMethodLabel = '< Select Method >'
 
 class GuiPipeline(CcpnModule):
 
-  def __init__(self, application=None, pipelineMethods=None, project=None, templates=None, **kw):
+  def __init__(self, mainWindow, name='', templates=None, **kw):
     super(GuiPipeline, self)
 
+    self.mainWindow = mainWindow
+    self.project = self.mainWindow.project
+    self.application = self.mainWindow.application
+    self.moduleArea = self.mainWindow.moduleArea
+
     nameCount = 0
-    for module in application.ui.mainWindow.moduleArea.findAll()[1].values():
+    for module in self.mainWindow.moduleArea.findAll()[1].values():
       if hasattr(module, 'runPipeline'):
         nameCount += 1
     name = 'Pipeline-' + str(nameCount)
-
-    self.project = project
-    self.application = application
-    self.mainWindow = application.ui.mainWindow
 
     self.current = self.application.current
     self.generalPreferences = self.application.preferences.general
@@ -58,7 +59,7 @@ class GuiPipeline(CcpnModule):
     self.templates = self._getPipelineTemplates(templates)
     self.pipelineMethods = self._getPipelineMethods()
 
-    CcpnModule.__init__(self, name=name)
+    CcpnModule.__init__(self, mainWindow=self.mainWindow, name=name)
 
     self._setIcons()
     self._setMainLayout()
