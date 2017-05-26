@@ -672,7 +672,7 @@ class FilterMethods(QtGui.QDialog):
 #
 #   def _generateWidget(self, objMethod):
 #     from functools import partial
-#     objMethod.widget = widget = PipelineBox(parent=self, pipe=objMethod)
+#     objMethod.widget = widget = GuiPipe(parent=self, pipe=objMethod)
 #     # ndac = self._getNonDefaultArgCount(objMethod.run) -1  # -1 so we don't count the self arg
 #
 #     params = objMethod.params

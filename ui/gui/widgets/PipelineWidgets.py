@@ -130,7 +130,7 @@ class PipelineDropArea(DockArea):
     """
 
     if box is None:
-      box = PipelineBox(name='New PipelineBox', **kwds)
+      box = PipelineBox(name='New GuiPipe', **kwds)
 
     if position is None:
       position = 'bottom'
@@ -221,9 +221,9 @@ class PipelineBox(Dock, DockDrop):
 
   def implements(self, name=None):
     if name is None:
-      return ['PipelineBox']
+      return ['GuiPipe']
     else:
-      return name == 'PipelineBox'
+      return name == 'GuiPipe'
 
 
   def _updateLabel(self, name):
@@ -291,7 +291,7 @@ class PipelineBox(Dock, DockDrop):
 
   def dragEnterEvent(self, ev):
     src = ev.source()
-    if hasattr(src, 'implements') and src.implements('PipelineBox'):
+    if hasattr(src, 'implements') and src.implements('GuiPipe'):
       ev.accept()
     else:
       ev.ignore()
