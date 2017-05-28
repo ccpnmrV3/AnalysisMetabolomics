@@ -381,6 +381,8 @@ class GuiPipeline(CcpnModule):
       from ccpn.ui.gui.lib.GuiGenerator import generateWidget
       widget = PipelineBox(parent=self, pipe=objMethod)
       if pipe.params is not None:
+        print(pipe.params)
+        print()
         pipelineWidget = generateWidget(pipe.params, widget=widget,
                                       argsDict=widget._kwargs, columns=4)
       else:
