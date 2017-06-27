@@ -32,7 +32,6 @@ import pyqtgraph as pg
 from PyQt4 import QtGui
 
 from ccpn.AnalysisMetabolomics.IntegralAssignment import IntegralTable
-from ccpn.ui.gui.modules.GuiTableGenerator import GuiTableGenerator
 from ccpn.ui.gui.widgets.Base import Base
 from ccpn.ui.gui.widgets.Button import Button
 from ccpn.ui.gui.widgets.Label import Label
@@ -64,9 +63,9 @@ class IntegrationWidget(QtGui.QWidget, Base):
     tipTexts=['Peak serial number', 'Magnitude of spectrum intensity at peak center (interpolated), unless user edited',
               'Integral of spectrum intensity around peak location, according to chosen volume method',
               'Textual notes about the peak']
-    self.peakTable = GuiTableGenerator(self, objectLists=project.peakLists, columns=columns,
-                                       selector=None, tipTexts=tipTexts, callback=self.tableCallback)
-    self.layout().addWidget(self.peakTable, 1, 1, 3, 5)
+    # self.peakTable = GuiTableGenerator(self, objectLists=project.peakLists, columns=columns,
+    #                                    selector=None, tipTexts=tipTexts, callback=self.tableCallback)
+    # self.layout().addWidget(self.peakTable, 1, 1, 3, 5)
 
   def togglePicking(self):
     if self.pickOnSpectrumButton.isChecked():
