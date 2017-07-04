@@ -1,3 +1,6 @@
+# This must be the first statemewnt in the file:
+from __future__ import unicode_literals, print_function, absolute_import, division
+
 #=========================================================================================
 # Licence, Reference and Credits
 #=========================================================================================
@@ -22,7 +25,6 @@ __date__ = "$Date: 2017-04-07 10:28:45 +0000 (Fri, April 07, 2017) $"
 #=========================================================================================
 # Start of code
 #=========================================================================================
-from __future__ import unicode_literals, print_function, absolute_import, division
 
 
 import unittest
