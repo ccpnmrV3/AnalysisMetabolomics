@@ -25,7 +25,7 @@ __date__ = "$Date: 2017-04-07 10:28:45 +0000 (Fri, April 07, 2017) $"
 # Start of code
 #=========================================================================================
 
-from PyQt4 import QtGui
+from PyQt5 import QtGui, QtWidgets
 
 from ccpn.ui.gui.modules.PeakTable import PeakListSimple
 from ccpn.ui.gui.widgets.Base import Base
@@ -35,10 +35,10 @@ from ccpn.ui.gui.widgets.PulldownList import PulldownList
 from ccpn.ui.gui.widgets.Table import ObjectTable, Column
 
 
-class PeakAssignment(QtGui.QWidget, Base):
+class PeakAssignment(QtWidgets.QWidget, Base):
 
   def __init__(self, parent=None, project=None, **kw):
-    QtGui.QWidget.__init__(self, parent)
+    QtWidgets.QWidget.__init__(self, parent)
     Base.__init__(self, **kw)
 
     self.peaksLabel = Label(self, 'Peaks', grid=(0, 0), gridSpan=(1, 3))
@@ -83,9 +83,9 @@ class PeakAssignment(QtGui.QWidget, Base):
     self.peakTable.peakTable.selectRow(currentRow)
 
 
-class SubstanceTable(QtGui.QWidget, Base):
+class SubstanceTable(QtWidgets.QWidget, Base):
   def __init__(self, parent=None, **kw):
-    QtGui.QWidget.__init__(self, parent)
+    QtWidgets.QWidget.__init__(self, parent)
     Base.__init__(self, **kw)
 
     substanceTableColumns = [Column('substance', 'substance'), Column('atom', 'atom'), Column('cs', 'cs')]

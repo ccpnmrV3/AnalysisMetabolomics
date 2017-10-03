@@ -26,7 +26,7 @@ __date__ = "$Date: 2017-04-07 10:28:45 +0000 (Fri, April 07, 2017) $"
 #=========================================================================================
 
 import pyqtgraph as pg
-from PyQt4 import QtCore, QtGui
+from PyQt5 import QtCore, QtGui, QtWidgets
 
 from ccpn.ui.gui.modules.CcpnModule import CcpnModule
 from ccpn.ui.gui.widgets.Base import Base
@@ -61,8 +61,8 @@ from ccpn.ui.gui.widgets.PulldownList import PulldownList
 #     self.goButton = Button(self, 'GO', grid=(0, 5), gridSpan=(1, 1))
 #     self.goButton.clicked.connect(self.runPca)
 #
-#     self.plottingWidget = QtGui.QWidget()
-#     self.plottingWidgetLayout = QtGui.QGridLayout()
+#     self.plottingWidget = QtWidgets.QWidget()
+#     self.plottingWidgetLayout = QtWidgets.QGridLayout()
 #     self.plottingWidget.setLayout(self.plottingWidgetLayout)
 #
 #     self.layout.addWidget(self.plottingWidget, 1, 0, 4, 6)
@@ -70,8 +70,8 @@ from ccpn.ui.gui.widgets.PulldownList import PulldownList
 #     self.scoresPlot = PlotWidget(self, appBase=project._appBase)
 #     self.scoresPlot.plotItem.axes['left']['item'].show()
 #     self.scoresPlot.plotItem.axes['right']['item'].hide()
-#     self.scoresWidget = QtGui.QWidget(self)
-#     self.scoresWidgetLayout = QtGui.QGridLayout()
+#     self.scoresWidget = QtWidgets.QWidget(self)
+#     self.scoresWidgetLayout = QtWidgets.QGridLayout()
 #     self.scoresWidgetLayout.addWidget(self.scoresPlot, 0, 0, 1, 7)
 #     self.scoresXLabel = Label(self, 'x ')
 #     self.scoresXBox = PulldownList(self)
@@ -91,8 +91,8 @@ from ccpn.ui.gui.widgets.PulldownList import PulldownList
 #     self.evPlot = PlotWidget(self, appBase=project._appBase)
 #     self.evPlot.plotItem.axes['left']['item'].show()
 #     self.evPlot.plotItem.axes['right']['item'].hide()
-#     self.evPlotWidgetLayout = QtGui.QGridLayout()
-#     self.evPlotWidget = QtGui.QWidget(self)
+#     self.evPlotWidgetLayout = QtWidgets.QGridLayout()
+#     self.evPlotWidget = QtWidgets.QWidget(self)
 #     self.evPlotXLabel = Label(self, 'x ')
 #     self.evPlotXBox = PulldownList(self)
 #     self.evPlotXBox.setData([]) # list of text that can be used to call stuff.
@@ -156,14 +156,14 @@ class PcaWidget(CcpnModule):
     self.layout.addWidget(self.pcaOutput, 3, 0, 1, 2)
 
 
-class PcaSettings(QtGui.QWidget, Base):
+class PcaSettings(QtWidgets.QWidget, Base):
   def __init__(self, parent=None, presenter=None, **kwargs):
-    QtGui.QWidget.__init__(self, parent)
+    QtWidgets.QWidget.__init__(self, parent)
     Base.__init__(self, **kwargs)
     self.presenter = presenter
 
-    self.setLayout(QtGui.QHBoxLayout())
-    column1Layout = QtGui.QVBoxLayout()
+    self.setLayout(QtWidgets.QHBoxLayout())
+    column1Layout = QtWidgets.QVBoxLayout()
     self.layout().addLayout(column1Layout)
 
     column1Layout.addWidget(Label(self, 'Method:'))
@@ -173,7 +173,7 @@ class PcaSettings(QtGui.QWidget, Base):
     # column1Layout.addWidget(self.goButton)
     column1Layout.addStretch()
 
-    column2Layout = QtGui.QGridLayout()
+    column2Layout = QtWidgets.QGridLayout()
     self.layout().addLayout(column2Layout)
     column2Layout.addWidget(Label(self, '1. Normalization:'), 0, 0, 1, 1)
     self.normMethodPulldown = PulldownList(self, callback=presenter.setNormalization)
@@ -197,10 +197,10 @@ class PcaSettings(QtGui.QWidget, Base):
 
 
 
-class PcaPlot(QtGui.QWidget):
+class PcaPlot(QtWidgets.QWidget):
   def __init__(self, parent=None, presenter=None, **kwargs):
-    QtGui.QWidget.__init__(self, parent)
-    self.setLayout(QtGui.QVBoxLayout())
+    QtWidgets.QWidget.__init__(self, parent)
+    self.setLayout(QtWidgets.QVBoxLayout())
     self.presenter = presenter
 
     self.plottingWidget = pg.PlotWidget(self)
@@ -209,7 +209,7 @@ class PcaPlot(QtGui.QWidget):
     self.plotItem.getAxis('bottom').setHeight(24)
 
     self.layout().addWidget(self.plottingWidget)
-    selectorLayout = QtGui.QHBoxLayout()
+    selectorLayout = QtWidgets.QHBoxLayout()
 
     selectorLayout.addWidget(Label(self, 'x:'))
     self.xAxisSelector = PulldownList(self, callback=self.plot)
@@ -237,13 +237,13 @@ class PcaPlot(QtGui.QWidget):
 
 
 
-class PcaOutput(QtGui.QWidget, Base):
+class PcaOutput(QtWidgets.QWidget, Base):
   def __init__(self, parent=None, presenter=None, **kwargs):
-    QtGui.QWidget.__init__(self, parent)
+    QtWidgets.QWidget.__init__(self, parent)
     Base.__init__(self, **kwargs)
     self.presenter = presenter
 
-    self.setLayout(QtGui.QHBoxLayout())
+    self.setLayout(QtWidgets.QHBoxLayout())
 
     self.sgNameEntryBox = LineEdit(self, text='pca_001')
     self.descaleCheck = CheckBox(self, checked=True, text='Descale Components')

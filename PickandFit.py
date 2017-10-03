@@ -27,7 +27,7 @@ __date__ = "$Date: 2017-04-07 10:28:45 +0000 (Fri, April 07, 2017) $"
 #=========================================================================================
 
 import pyqtgraph as pg
-from PyQt4 import QtCore, QtGui
+from PyQt5 import QtCore, QtGui, QtWidgets
 
 from ccpn.ui.gui.modules.PeakTable import PeakListSimple
 from ccpn.ui.gui.widgets.Base import Base
@@ -37,10 +37,10 @@ from ccpn.ui.gui.widgets.Label import Label
 from ccpn.ui.gui.widgets.PulldownList import PulldownList
 from ccpn.ui.gui.widgets.Spinbox import Spinbox
 
-class AutoPick(QtGui.QWidget, Base):
+class AutoPick(QtWidgets.QWidget, Base):
 
   def __init__(self, parent=None, **kw):
-    QtGui.QWidget.__init__(self, parent)
+    QtWidgets.QWidget.__init__(self, parent)
     Base.__init__(self, **kw)
 
     self.pickingLabel = Label(self, 'Autopick method', grid=(0, 0))
@@ -65,10 +65,10 @@ class AutoPick(QtGui.QWidget, Base):
       self.box1 = DoubleSpinbox(self, grid=(2, i+1))
 
 
-class Fit(QtGui.QWidget, Base):
+class Fit(QtWidgets.QWidget, Base):
 
   def __init__(self, parent=None, strip=None, **kw):
-    QtGui.QWidget.__init__(self, parent)
+    QtWidgets.QWidget.__init__(self, parent)
     Base.__init__(self, **kw)
 
     self.lineShapeLabel = Label(self, 'Lineshape ', grid=(0, 0))
@@ -94,22 +94,22 @@ class Fit(QtGui.QWidget, Base):
       self.box1 = DoubleSpinbox(self, grid=(1, i+1))
 
 
-class PickandFit(QtGui.QWidget, Base):
+class PickandFit(QtWidgets.QWidget, Base):
   def __init__(self, parent=None, strip=None, **kw):
-    QtGui.QWidget.__init__(self, parent)
+    QtWidgets.QWidget.__init__(self, parent)
     Base.__init__(self, **kw)
     self.strip = strip
     tabWidget = QtGui.QTabWidget()
-    tabWidget.setSizePolicy(QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
+    tabWidget.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
     tabWidget.addTab(AutoPick(self), "Autopick")
     tabWidget.addTab(Fit(self, strip), "Fit")
     self.layout().addWidget(tabWidget)
 
 
-class PickandFitTable(QtGui.QWidget, Base):
+class PickandFitTable(QtWidgets.QWidget, Base):
 
   def __init__(self, parent=None, project=None, fitModule=None, **kw):
-    QtGui.QWidget.__init__(self, parent)
+    QtWidgets.QWidget.__init__(self, parent)
     Base.__init__(self, **kw)
 
     # self.radioButton1 = RadioButton(self, grid=(0, 0))

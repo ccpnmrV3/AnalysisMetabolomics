@@ -28,7 +28,7 @@ __date__ = "$Date: 2017-04-07 10:28:45 +0000 (Fri, April 07, 2017) $"
 
 import numpy
 import pyqtgraph as pg
-from PyQt4 import QtGui
+from PyQt5 import QtGui, QtWidgets
 
 from ccpn.AnalysisMetabolomics.IntegralAssignment import IntegralTable
 from ccpn.ui.gui.widgets.Base import Base
@@ -38,10 +38,10 @@ from ccpn.ui.gui.widgets.LineEdit import LineEdit
 from ccpn.ui.gui.widgets.PulldownList import PulldownList
 from ccpn.ui.gui.widgets.RadioButton import RadioButton
 
-class IntegrationWidget(QtGui.QWidget, Base):
+class IntegrationWidget(QtWidgets.QWidget, Base):
 
   def __init__(self, parent=None, project=None, **kw):
-    QtGui.QWidget.__init__(self, parent)
+    QtWidgets.QWidget.__init__(self, parent)
     Base.__init__(self, **kw)
     self.pickButtonLabel = Label(self, 'Pick', grid=(0, 0))
     self.current = project._appBase.current
@@ -116,10 +116,10 @@ class IntegrationWidget(QtGui.QWidget, Base):
 
 
 
-class IntegrationTable(QtGui.QWidget, Base):
+class IntegrationTable(QtWidgets.QWidget, Base):
 
   def __init__(self, parent=None, project=None, **kw):
-    QtGui.QWidget.__init__(self, parent)
+    QtWidgets.QWidget.__init__(self, parent)
     Base.__init__(self, **kw)
 
     self.radioButton1 = RadioButton(self, grid=(0, 0), hAlign='r', callback=self.setupSpectralView)
