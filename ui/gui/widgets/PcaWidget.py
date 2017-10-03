@@ -189,7 +189,7 @@ class PcaSettings(QtWidgets.QWidget, Base):
 
     self.layout().addWidget(Label(self, 'Source:'))
     self.sourceList = ListWidget(self, callback=presenter.setSourcesSelection)
-    self.sourceList.setSelectionMode(QtGui.QAbstractItemView.ExtendedSelection)
+    self.sourceList.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
 
     self.layout().addWidget(self.sourceList)
 
