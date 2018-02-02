@@ -99,7 +99,7 @@ class PickandFit(QtWidgets.QWidget, Base):
     QtWidgets.QWidget.__init__(self, parent)
     Base.__init__(self, **kw)
     self.strip = strip
-    tabWidget = QtGui.QTabWidget()
+    tabWidget = QtWidgets.QTabWidget()
     tabWidget.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
     tabWidget.addTab(AutoPick(self), "Autopick")
     tabWidget.addTab(Fit(self, strip), "Fit")
