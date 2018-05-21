@@ -40,11 +40,16 @@ from ccpn.ui.gui.widgets.RadioButton import RadioButton
 
 class IntegrationWidget(QtWidgets.QWidget, Base):
 
-  def __init__(self, parent=None, project=None, **kw):
+  def __init__(self, parent=None, mainWindow=None, **kw):
     QtWidgets.QWidget.__init__(self, parent)
     Base.__init__(self, **kw)
+
+    self.mainWindow = mainWindow
+    self.application = mainWindow.application
+    self.project = mainWindow.application.project
+    self.current = mainWindow.application.current
+
     self.pickButtonLabel = Label(self, 'Pick', grid=(0, 0))
-    self.current = project._appBase.current
     self.linePoints = []
     self.integrationRegions = []
     self.pickOnSpectrumButton = Button(self, grid=(0, 1), toggle=True, icon='icons/target3+',hPolicy='fixed', callback=self.togglePicking)

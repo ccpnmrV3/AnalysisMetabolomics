@@ -63,7 +63,7 @@ class Metabolomics(Framework):
   #   spectrumDisplay = self.ui.mainWindow.createSpectrumDisplay(self.project.spectra[0])
   #   from ccpn.AnalysisMetabolomics.Integration import IntegrationTable, IntegrationWidget
   #   spectrumDisplay.integrationWidget = IntegrationWidget(spectrumDisplay.module,
-  #                                                         project=self.project, grid=(2, 0), gridSpan=(1, 4))
+  #                                                         mainWindow=self.ui.mainWindow, grid=(2, 0), gridSpan=(1, 4))
   #   spectrumDisplay.integrationTable = IntegrationTable(spectrumDisplay.module,
   #                                                       project=self.project, grid=(0, 4), gridSpan=(3, 1))
   #   self.current.strip = spectrumDisplay.strips[0]
