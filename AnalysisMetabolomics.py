@@ -22,13 +22,13 @@ __date__ = "$Date: 2017-04-07 10:28:45 +0000 (Fri, April 07, 2017) $"
 # Start of code
 #=========================================================================================
 
-from ccpn.framework.Framework import Framework
+from ccpn.AnalysisAssign.AnalysisAssign import Assign
 
 
-class Metabolomics(Framework):
+class Metabolomics(Assign):
   """Root class for Metabolomics application"""
   def __init__(self, applicationName, applicationVersion, commandLineArguments):
-    Framework.__init__(self, applicationName, applicationVersion, commandLineArguments)
+    Assign.__init__(self, applicationName, applicationVersion, commandLineArguments)
 
 
   def setupMenus( self ):
