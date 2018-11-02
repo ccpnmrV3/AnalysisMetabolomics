@@ -39,10 +39,10 @@ from ccpn.ui.gui.widgets.PulldownList import PulldownList
 
 
 class PcaWidget(CcpnModule):
-  def __init__(self, presenter, parent, **kwargs):
-    CcpnModule.__init__(self, name='PCA')
+  def __init__(self, presenter, mainWindow, **kwargs):
+    CcpnModule.__init__(self,mainWindow=mainWindow, name='PCA')
     self.presenter = presenter
-
+    self.mainWindow = mainWindow
     self.settings = PcaSettings(self, presenter=self.presenter)
     self.pcaPlotLeft = PcaPlot(self, presenter=self.presenter)
     self.pcaPlotRight = PcaPlot(self, presenter=self.presenter)

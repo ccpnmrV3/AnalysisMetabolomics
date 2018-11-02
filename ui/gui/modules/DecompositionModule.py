@@ -36,8 +36,8 @@ class DecompositionModule:
   Ideally, there are no Qt or pyqtgrpah specific calls here.
   """
 
-  def __init__(self, application, parent=None, interactor=None):
-    self.widget = PcaWidget(parent=parent.mainWindow, presenter=self)
+  def __init__(self, application, mainWindow, interactor=None):
+    self.widget = PcaWidget(mainWindow=mainWindow, presenter=self)
     self.interactor = interactor
     self.project = application.project
     self.current = application.current
