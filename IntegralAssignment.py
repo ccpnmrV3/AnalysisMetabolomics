@@ -108,11 +108,11 @@ class IntegralTable(QtWidgets.QWidget):
     pass
 
 
-
 class SubstanceTable(QtWidgets.QWidget, Base):
-  def __init__(self, parent=None, **kw):
-    QtWidgets.QWidget.__init__(self, parent)
-    Base.__init__(self, **kw)
+  def __init__(self, parent=None, **kwds):
+
+    super().__init__(parent)
+    Base._init(self, **kwds)
 
     substanceTableColumns = [Column('substance', 'name', setEditValue=lambda substance, value: self.setSubstanceName(substance, value)),
                              Column('atom', 'atom'), Column('cs', 'cs')]

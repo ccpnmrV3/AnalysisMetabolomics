@@ -36,12 +36,13 @@ from ccpn.ui.gui.widgets.DoubleSpinbox import DoubleSpinbox
 from ccpn.ui.gui.widgets.Label import Label
 from ccpn.ui.gui.widgets.PulldownList import PulldownList
 from ccpn.ui.gui.widgets.Spinbox import Spinbox
+from ccpn.ui.gui.widgets.Widget import Widget
 
-class AutoPick(QtWidgets.QWidget, Base):
+class AutoPick(Widget):
 
-  def __init__(self, parent=None, **kw):
-    QtWidgets.QWidget.__init__(self, parent)
-    Base.__init__(self, **kw)
+  def __init__(self, parent=None, **kwds):
+
+    super().__init__(parent, **kwds)
 
     self.pickingLabel = Label(self, 'Autopick method', grid=(0, 0))
     self.methodPulldown = PulldownList(self, grid=(0, 1))
@@ -65,11 +66,11 @@ class AutoPick(QtWidgets.QWidget, Base):
       self.box1 = DoubleSpinbox(self, grid=(2, i+1))
 
 
-class Fit(QtWidgets.QWidget, Base):
+class Fit(Widget):
 
-  def __init__(self, parent=None, strip=None, **kw):
-    QtWidgets.QWidget.__init__(self, parent)
-    Base.__init__(self, **kw)
+  def __init__(self, parent=None, strip=None, **kwds):
+
+    super().__init__(parent, **kwds)
 
     self.lineShapeLabel = Label(self, 'Lineshape ', grid=(0, 0))
     self.lineShapePulldown = PulldownList(self, grid=(0, 1))
@@ -94,10 +95,9 @@ class Fit(QtWidgets.QWidget, Base):
       self.box1 = DoubleSpinbox(self, grid=(1, i+1))
 
 
-class PickandFit(QtWidgets.QWidget, Base):
-  def __init__(self, parent=None, strip=None, **kw):
-    QtWidgets.QWidget.__init__(self, parent)
-    Base.__init__(self, **kw)
+class PickandFit(Widget):
+  def __init__(self, parent=None, strip=None, **kwds):
+    super().__init__(parent, **kwds)
     self.strip = strip
     tabWidget = QtWidgets.QTabWidget()
     tabWidget.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
@@ -106,11 +106,10 @@ class PickandFit(QtWidgets.QWidget, Base):
     self.layout().addWidget(tabWidget)
 
 
-class PickandFitTable(QtWidgets.QWidget, Base):
+class PickandFitTable(Widget):
 
-  def __init__(self, parent=None, project=None, fitModule=None, **kw):
-    QtWidgets.QWidget.__init__(self, parent)
-    Base.__init__(self, **kw)
+  def __init__(self, parent=None, project=None, fitModule=None, **kwds):
+    super().__init__(parent, **kwds)
 
     # self.radioButton1 = RadioButton(self, grid=(0, 0))
     # self.label1 = Label(self, 'By Spectrum', grid=(0, 1))

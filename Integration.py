@@ -41,8 +41,9 @@ from ccpn.ui.gui.widgets.RadioButton import RadioButton
 class IntegrationWidget(QtWidgets.QWidget, Base):
 
   def __init__(self, parent=None, mainWindow=None, **kw):
-    QtWidgets.QWidget.__init__(self, parent)
-    Base.__init__(self, **kw)
+
+    super().__init__(parent)
+    Base._init(self, **kw)
 
     self.mainWindow = mainWindow
     self.application = mainWindow.application
@@ -123,9 +124,10 @@ class IntegrationWidget(QtWidgets.QWidget, Base):
 
 class IntegrationTable(QtWidgets.QWidget, Base):
 
-  def __init__(self, parent=None, project=None, **kw):
-    QtWidgets.QWidget.__init__(self, parent)
-    Base.__init__(self, **kw)
+  def __init__(self, parent=None, project=None, **kwds):
+
+    super().__init__(parent)
+    Base._init(self, **kwds)
 
     self.radioButton1 = RadioButton(self, grid=(0, 0), hAlign='r', callback=self.setupSpectralView)
     self.radioButton1.setChecked(True)

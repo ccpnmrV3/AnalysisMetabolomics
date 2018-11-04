@@ -36,6 +36,7 @@ from ccpn.ui.gui.widgets.Label import Label
 from ccpn.ui.gui.widgets.LineEdit import LineEdit
 from ccpn.ui.gui.widgets.ListWidget import ListWidget
 from ccpn.ui.gui.widgets.PulldownList import PulldownList
+from ccpn.ui.gui.widgets.Widget import Widget
 
 
 class PcaWidget(CcpnModule):
@@ -54,10 +55,9 @@ class PcaWidget(CcpnModule):
     self.layout.addWidget(self.pcaOutput, 3, 0, 1, 2)
 
 
-class PcaSettings(QtWidgets.QWidget, Base):
-  def __init__(self, parent=None, presenter=None, **kwargs):
-    QtWidgets.QWidget.__init__(self, parent)
-    Base.__init__(self, **kwargs)
+class PcaSettings(Widget):
+  def __init__(self, parent=None, presenter=None, **kwds):
+    super().__init__(parent, **kwds)
     self.presenter = presenter
 
     self.setLayout(QtWidgets.QHBoxLayout())
@@ -134,11 +134,9 @@ class PcaPlot(QtWidgets.QWidget):
                           pen=pg.functions.mkPen('w', width=1, style=QtCore.Qt.DashLine)))
 
 
-
-class PcaOutput(QtWidgets.QWidget, Base):
-  def __init__(self, parent=None, presenter=None, **kwargs):
-    QtWidgets.QWidget.__init__(self, parent)
-    Base.__init__(self, **kwargs)
+class PcaOutput(Widget):
+  def __init__(self, parent=None, presenter=None, **kwds):
+    super().__init__(parent, **kwds)
     self.presenter = presenter
 
     self.setLayout(QtWidgets.QHBoxLayout())
@@ -147,13 +145,10 @@ class PcaOutput(QtWidgets.QWidget, Base):
     self.descaleCheck = CheckBox(self, checked=True, text='Descale Components')
     self.saveButton = Button(self, 'save', callback=self.presenter.saveOutput)
 
-    self.layout().addWidget(Label(self, 'Output spectrum group:'))
-    self.layout().addWidget(self.sgNameEntryBox)
-    self.layout().addWidget(self.descaleCheck)
-    self.layout().addStretch()
-    self.layout().addWidget(self.saveButton)
-
-
-
+    self.getLayout().addWidget(Label(self, 'Output spectrum group:'))
+    self.getLayout().addWidget(self.sgNameEntryBox)
+    self.getLayout().addWidget(self.descaleCheck)
+    self.getLayout().addStretch()
+    self.getLayout().addWidget(self.saveButton)
     self.setMaximumHeight(45)
 

@@ -33,13 +33,13 @@ from ccpn.ui.gui.widgets.Button import Button
 from ccpn.ui.gui.widgets.Label import Label
 from ccpn.ui.gui.widgets.PulldownList import PulldownList
 from ccpn.ui.gui.widgets.Table import ObjectTable, Column
+from ccpn.ui.gui.widgets.Widget import Widget
 
 
-class PeakAssignment(QtWidgets.QWidget, Base):
+class PeakAssignment(Widget):
 
-  def __init__(self, parent=None, project=None, **kw):
-    QtWidgets.QWidget.__init__(self, parent)
-    Base.__init__(self, **kw)
+  def __init__(self, parent=None, project=None, **kwds):
+    super()().__init__(parent, **kwds)
 
     self.peaksLabel = Label(self, 'Peaks', grid=(0, 0), gridSpan=(1, 3))
     self.assignLabel = Label(self, 'Fit', grid=(1, 4))
@@ -55,7 +55,6 @@ class PeakAssignment(QtWidgets.QWidget, Base):
 
   def callback(self):
     pass
-
 
   def assignPeak(self):
     peakObject = self.peakTable.peakTable.getCurrentObject()
@@ -83,10 +82,9 @@ class PeakAssignment(QtWidgets.QWidget, Base):
     self.peakTable.peakTable.selectRow(currentRow)
 
 
-class SubstanceTable(QtWidgets.QWidget, Base):
-  def __init__(self, parent=None, **kw):
-    QtWidgets.QWidget.__init__(self, parent)
-    Base.__init__(self, **kw)
+class SubstanceTable(Widget):
+  def __init__(self, parent=None, **kwds):
+    super().__init__(parent, **kwds)
 
     substanceTableColumns = [Column('substance', 'substance'), Column('atom', 'atom'), Column('cs', 'cs')]
 
@@ -100,6 +98,7 @@ class SubstanceTable(QtWidgets.QWidget, Base):
 
   def substanceCallback(self):
     pass
+
 
 class Substance(object):
   def __init__(self, substance, atom, cs):
