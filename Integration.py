@@ -40,10 +40,10 @@ from ccpn.ui.gui.widgets.RadioButton import RadioButton
 
 class IntegrationWidget(QtWidgets.QWidget, Base):
 
-  def __init__(self, parent=None, mainWindow=None, **kw):
+  def __init__(self, parent=None, mainWindow=None, **kwds):
 
     super().__init__(parent)
-    Base._init(self, **kw)
+    Base._init(self, **kwds)
 
     self.mainWindow = mainWindow
     self.application = mainWindow.application
