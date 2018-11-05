@@ -93,7 +93,7 @@ class IntegralAssignment(QtWidgets.QWidget):
 
 class IntegralTable(QtWidgets.QWidget):
 
-  def __init__(self, parent=None, project=None, **kw):
+  def __init__(self, parent=None, project=None, **kwds):
     QtWidgets.QWidget.__init__(self, parent)
 
     integralTableColumns = [Column('ID', 'id'), Column('range', 'range'), Column('slope', 'slope'), Column('bias','bias'),
