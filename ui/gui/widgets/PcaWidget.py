@@ -85,7 +85,15 @@ class PcaSettings(QtWidgets.QWidget, Base):
     self.scalingMethodPulldown = PulldownList(self, callback=presenter.setScaling)
     column2Layout.addWidget(self.scalingMethodPulldown, 2, 1, 1, 1)
 
-    self.layout().addWidget(Label(self, 'Source:'))
+    spectrumGroupsLabel = Label(self, 'SpectrumGroups:')
+    self.layout().addWidget(spectrumGroupsLabel)
+
+    self.spectrumGroupsList = ListWidget(self, callback=None)
+    self.spectrumGroupsList.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
+    self.layout().addWidget(self.spectrumGroupsList)
+
+    spectraLabel = Label(self, 'Spectra Source:')
+    self.layout().addWidget(spectraLabel)
     self.sourceList = ListWidget(self, callback=presenter.setSourcesSelection)
     self.sourceList.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
 
