@@ -121,7 +121,6 @@ class Decomposition:
 
   def getSpectrumGroups(self):
     sg = [s for s in self.project.spectrumGroups]
-    print('getSpectrumGroups', sg)
     return sg
 
   def getSourceData(self):
@@ -254,9 +253,9 @@ class Decomposition:
       # decomposition -->  module 'ccpn.AnalysisMetabolomics.lib.decomposition
       # self.__data --> intensities as array
 
-      print( 'self.__data',type(self.__data), self.__data)
+      data = self.__data.replace(np.nan, 0)
 
-      self.model = getattr(decomposition, self.__decomp)(self.__data)
+      self.model = getattr(decomposition, self.__decomp)(data)
       self.setAvailablePlotData()
 
 
