@@ -133,6 +133,7 @@ class Decomposition:
     # print(self.project.spectra)
     # print(list([s.axisCodes for s in self.project.spectra]))
     # print(sd)
+
     return sd
 
 
@@ -194,8 +195,10 @@ class Decomposition:
       spectrum = self.project.getByPid('SP:{}'.format(d))
       data = np.array([spectrum.positions, spectrum.intensities])
       sd[d] = data
-    l = [pd.Series(sd[name][1], index=sd[name][0], name=name) for name in sorted(sd.keys())]
-    self.__data = pd.concat(l, axis=1).T
+    l = [pd.Series(sd[name][1], name=name) for name in sorted(sd.keys())]
+    data = pd.concat(l, axis=1).T
+    data = data.replace(np.nan, 0)
+    self.__data =  data
 
   def normalize(self):
     if self.normalization.upper() == 'PQN':
@@ -247,6 +250,12 @@ class Decomposition:
       self.normalize()
       self.center()
       self.scale()
+      # self.__decomp -->   PCA decomposition
+      # decomposition -->  module 'ccpn.AnalysisMetabolomics.lib.decomposition
+      # self.__data --> intensities as array
+
+      print( 'self.__data',type(self.__data), self.__data)
+
       self.model = getattr(decomposition, self.__decomp)(self.__data)
       self.setAvailablePlotData()
 

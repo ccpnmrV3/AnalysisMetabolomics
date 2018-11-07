@@ -117,6 +117,7 @@ class DecompositionModule:
 
   def setSourcesSelection(self, rowClicked):
     # should actually pass the selection to the interactor and have it bump back up...
+
     self.interactor.sources = [s.text() for s in self.widget.settings.sourceList.selectedItems()]
 
 
