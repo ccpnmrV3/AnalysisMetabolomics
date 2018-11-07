@@ -27,6 +27,34 @@ from collections import OrderedDict
 
 import numpy as np
 
+
+FIELD = 400
+SW_PPM = 14
+CENTER = 4.7
+POINTS = 2 ** 14
+
+spectrum_x_ppm = np.linspace(CENTER + SW_PPM / 2, CENTER - SW_PPM / 2, POINTS)
+spectrum_x_hz = spectrum_x_ppm * FIELD
+
+
+procs = {'BYTORDP': 0, # Byte order, little (0) or big (1) endian
+         'NC_proc': 0, # Data scaling factor, -3 means data were multiplied by 2**3, 4 means divided by 2**4
+         'SI': POINTS, # Size of processed data
+         'XDIM': 0, # Block size for 2D & 3D data
+         'FTSIZE': POINTS, # Size of FT output.  Same as SI except for strip plotting.
+         'SW_p': SW_PPM * FIELD, # Spectral width of processed data in Hz
+         'SF': FIELD, # Spectral reference position (center of spectrum)
+         'OFFSET': SW_PPM/2 + CENTER, # ppm value of left-most point in spectrum
+         'AXNUC': '<1H>',
+         'LB': 0.3, # Lorentzian broadening size (Hz)
+         'GB': 0, # Gaussian broadening factor
+         'SSB': 0, # Sine bell shift pi/ssb.  =1 for sine and =2 for cosine.  values <2 default to sine
+         'WDW': 1, # Window multiplication mode
+         'TM1': 0, # End of the rising edge of trapezoidal, takes a value from 0-1, must be less than TM2
+         'TM2': 1, # Beginings of the falling edge of trapezoidal, takes a value from 0-1, must be greater than TM1
+         'BC_mod': 0 # Baseline correction mode (em, gm, sine, qsine, trap, user(?), sinc, qsinc, traf, trafs(JMR 71 1987, 237))
+        }
+
 class Borg:
     _shared_state = {}
     def __init__(self):
@@ -60,6 +88,8 @@ def bruker1dDict(refDF=None, SF=1, FTSIZE=None, SW_p=None, OFFSET=None):
           }
   procs['SW_p'] = SW_p # Spectral width of processed data in Hz
   procs['OFFSET'] = OFFSET # ppm value of left-most point in spectrum
+  procs['SI'] = FTSIZE
+
   if refDF is not None:
     ppmMin, ppmMax = refDF.columns.min(), refDF.columns.max()
     swPpm = float(ppmMax) - float(ppmMin)
