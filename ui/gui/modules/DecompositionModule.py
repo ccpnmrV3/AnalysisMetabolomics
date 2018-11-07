@@ -63,6 +63,7 @@ class DecompositionModule:
     self.widget.settings.centMethodPulldown.setData(['Mean', 'Median', 'none'])
     self.widget.settings.scalingMethodPulldown.setData(['Pareto', 'Unit Variance', 'none'])
     self.interactor.refreshSourceDataOptions()
+    self.interactor.refreshSpectrumGroupFilter()
 
 
   def setSourceDataOptions(self, sourceData=None):
@@ -70,6 +71,11 @@ class DecompositionModule:
     if sourceData is not None:
       sdo = [s.name for s in sourceData]
       self.widget.settings.sourceList.addItems(sdo)
+
+  def setSpectrumGroups(self, spectrumGroups=None):
+    self.widget.settings.spectrumGroupsList.clear()
+    if spectrumGroups is not None:
+      self.widget.settings.spectrumGroupsList.setObjects(spectrumGroups)
 
 
   def setMethod(self, method):
@@ -106,6 +112,7 @@ class DecompositionModule:
     self.__scaling = scaling
     self.widget.settings.scalingMethodPulldown.select(scaling)
     self.interactor.scaling = scaling
+
 
 
   def setSourcesSelection(self, rowClicked):

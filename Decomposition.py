@@ -74,6 +74,10 @@ class Decomposition:
     self.project.registerNotifier('Spectrum', 'change', self.refreshSourceDataOptions)
     self.project.registerNotifier('Spectrum', 'rename', self.refreshSourceDataOptions)
     self.project.registerNotifier('Spectrum', 'delete', self.refreshSourceDataOptions)
+    self.project.registerNotifier('SpectrumGroup', 'create', self.refreshSpectrumGroupFilter)
+    self.project.registerNotifier('SpectrumGroup', 'change', self.refreshSpectrumGroupFilter)
+    self.project.registerNotifier('SpectrumGroup', 'rename', self.refreshSpectrumGroupFilter)
+    self.project.registerNotifier('SpectrumGroup', 'delete', self.refreshSpectrumGroupFilter)
 
 
   # def deRegisterNotifiers(self):
@@ -91,6 +95,7 @@ class Decomposition:
     self.__presenter = value
     if value is not None:
       self.refreshSourceDataOptions()
+      self.refreshSpectrumGroupFilter()
 
   @property
   def method(self):
@@ -110,6 +115,14 @@ class Decomposition:
     if self.presenter is not None:
       self.presenter.setSourceDataOptions(self.getSourceData())
 
+  def refreshSpectrumGroupFilter(self, *args):
+    if self.presenter is not None:
+      self.presenter.setSpectrumGroups(self.getSpectrumGroups())
+
+  def getSpectrumGroups(self):
+    sg = [s for s in self.project.spectrumGroups]
+    print('getSpectrumGroups', sg)
+    return sg
 
   def getSourceData(self):
     sd = []
