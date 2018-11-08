@@ -36,8 +36,8 @@ class DecompositionModule:
   Ideally, there are no Qt or pyqtgrpah specific calls here.
   """
 
-  def __init__(self, application, parent=None, interactor=None):
-    self.widget = PcaWidget(parent=parent.mainWindow, presenter=self)
+  def __init__(self, application, mainWindow, interactor=None):
+    self.widget = PcaWidget(mainWindow=mainWindow, presenter=self)
     self.interactor = interactor
     self.project = application.project
     self.current = application.current
@@ -63,6 +63,7 @@ class DecompositionModule:
     self.widget.settings.centMethodPulldown.setData(['Mean', 'Median', 'none'])
     self.widget.settings.scalingMethodPulldown.setData(['Pareto', 'Unit Variance', 'none'])
     self.interactor.refreshSourceDataOptions()
+    self.interactor.refreshSpectrumGroupFilter()
 
 
   def setSourceDataOptions(self, sourceData=None):
@@ -70,6 +71,11 @@ class DecompositionModule:
     if sourceData is not None:
       sdo = [s.name for s in sourceData]
       self.widget.settings.sourceList.addItems(sdo)
+
+  def setSpectrumGroups(self, spectrumGroups=None):
+    self.widget.settings.spectrumGroupsList.clear()
+    if spectrumGroups is not None:
+      self.widget.settings.spectrumGroupsList.setObjects(spectrumGroups)
 
 
   def setMethod(self, method):
@@ -108,8 +114,10 @@ class DecompositionModule:
     self.interactor.scaling = scaling
 
 
+
   def setSourcesSelection(self, rowClicked):
     # should actually pass the selection to the interactor and have it bump back up...
+
     self.interactor.sources = [s.text() for s in self.widget.settings.sourceList.selectedItems()]
 
 

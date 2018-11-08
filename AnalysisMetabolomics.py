@@ -34,8 +34,6 @@ class Metabolomics(Assign):
   def setupMenus( self ):
     super().setupMenus( )
     menuSpec = ('Metabolomics', [("Decomposition (PCA)", self.showDecompositionModule),
-                                 # ("Pipeline", self.showScreeningPipeline,),
-                                 ("Peak Fitting", self.showPeakFittingModule,),
                                  (),
                                  ("Pipeline", self.showMetabolomicsPipeline,),
                                  ])
@@ -104,27 +102,29 @@ class Metabolomics(Assign):
     self.decomposition = Decomposition(application=self)
     self.ui.decompositionModule = DecompositionModule(application=self,
                                                       interactor=self.decomposition,
-                                                      parent=self.ui)
+                                                      mainWindow=self.ui.mainWindow)
     self.decomposition.presenter = self.ui.decompositionModule
     self.ui.mainWindow.moduleArea.addModule(self.ui.decompositionModule.widget, position='bottom')
 
 
 
-  def showPeakFittingModule(self):
-    # from ccpn.AnalysisMetabolomics.PeakFitting import PeakFitting
-    # from ccpn.AnalysisMetabolomics.ui.gui.modules.PeakFittingModule import PeakFittingModule
-    #
-    # self.peakFitting = PeakFitting(application=self)
-    # self.ui.peakFittingModule = PeakFittingModule(application=self,
-    #                                                   interactor=self.peakFitting,
-    #                                                   parent=self.ui)
-    # self.peakFitting.presenter = self.ui.peakFittingModule
-    # self.ui.mainWindow.moduleArea.addModule(self.ui.peakFittingModule.widget, position='bottom')
 
-    print('Interactive peak demo')
-    # from application.metabolomics.presenters.peaks import InteractiveDemoPresenter
-    from ccpn.AnalysisMetabolomics.ui.gui.modules.PeakFittingModule import InteractiveDemoPresenter
-    self.peakDemoModule = InteractiveDemoPresenter(interactor=None,
-                                                   parent=self,
-                                                   project=self.project)
-    self.ui.mainWindow.moduleArea.addModule(self.peakDemoModule.widget, position='bottom')
+  # This has not been implemented.
+  # def showPeakFittingModule(self):
+  #   from ccpn.AnalysisMetabolomics.PeakFitting import PeakFitting
+  #   from ccpn.AnalysisMetabolomics.ui.gui.modules.PeakFittingModule import PeakFittingModule
+  #
+  #   self.peakFitting = PeakFitting(application=self)
+  #   self.ui.peakFittingModule = PeakFittingModule(application=self,
+  #                                                     interactor=self.peakFitting,
+  #                                                     parent=self.ui)
+  #   self.peakFitting.presenter = self.ui.peakFittingModule
+  #   self.ui.mainWindow.moduleArea.addModule(self.ui.peakFittingModule.widget, position='bottom')
+  #
+  #   print('Interactive peak demo')
+  #   # from application.metabolomics.presenters.peaks import InteractiveDemoPresenter
+  #   from ccpn.AnalysisMetabolomics.ui.gui.modules.PeakFittingModule import InteractiveDemoPresenter
+  #   self.peakDemoModule = InteractiveDemoPresenter(interactor=None,
+  #                                                  parent=self,
+  #                                                  project=self.project)
+  #   self.ui.mainWindow.moduleArea.addModule(self.peakDemoModule.widget, position='bottom')

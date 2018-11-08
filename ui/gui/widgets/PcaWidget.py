@@ -40,10 +40,10 @@ from ccpn.ui.gui.widgets.Widget import Widget
 
 
 class PcaWidget(CcpnModule):
-  def __init__(self, presenter, parent, **kwargs):
-    CcpnModule.__init__(self, name='PCA')
+  def __init__(self, presenter, mainWindow, **kwargs):
+    CcpnModule.__init__(self,mainWindow=mainWindow, name='PCA')
     self.presenter = presenter
-
+    self.mainWindow = mainWindow
     self.settings = PcaSettings(self, presenter=self.presenter)
     self.pcaPlotLeft = PcaPlot(self, presenter=self.presenter)
     self.pcaPlotRight = PcaPlot(self, presenter=self.presenter)
@@ -85,13 +85,47 @@ class PcaSettings(Widget):
     self.scalingMethodPulldown = PulldownList(self, callback=presenter.setScaling)
     column2Layout.addWidget(self.scalingMethodPulldown, 2, 1, 1, 1)
 
-    self.layout().addWidget(Label(self, 'Source:'))
+    spectrumGroupsLabel = Label(self, 'SpectrumGroups:')
+    self.layout().addWidget(spectrumGroupsLabel)
+
+    self.spectrumGroupsList = ListWidget(self, callback=self._filterBySpectrumGroups)
+    self.spectrumGroupsList.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
+    self.spectrumGroupsList.clearSelection = self._clearSpectrumGroupSelection
+    self.spectrumGroupsList.setSelectContextMenu()
+    self.layout().addWidget(self.spectrumGroupsList)
+
+    spectraLabel = Label(self, 'Spectra Source:')
+    self.layout().addWidget(spectraLabel)
     self.sourceList = ListWidget(self, callback=presenter.setSourcesSelection)
     self.sourceList.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
+    self.sourceList.setSelectContextMenu()
 
     self.layout().addWidget(self.sourceList)
 
     self.setMaximumHeight(100)
+
+  def _clearSelection(self, listWidget):
+    for i in range(listWidget.count()):
+      item = listWidget.item(i)
+      item.setSelected(False)
+
+  def _clearSpectrumGroupSelection(self):
+    print('This function has not been implemented yet.')
+    # self._clearSelection(self.spectrumGroupsList)
+    # self.sourceList.clear()
+    # self.presenter.setSourcesSelection(None)
+
+
+  def _filterBySpectrumGroups(self, rowClicked):
+    sGroups = self.spectrumGroupsList.getSelectedObjects()
+
+    # self.sourceList.hideAllItems()
+    self.sourceList.clearSelection()
+    self.presenter.setSourcesSelection(None)
+    spectra = [sp for sg in sGroups for sp in sg.spectra]
+    self.sourceList.showItems([spectrum.name for spectrum in spectra], select=True)
+
+    self.presenter.setSourcesSelection(None)
 
 
 

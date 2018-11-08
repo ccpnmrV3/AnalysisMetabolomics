@@ -25,7 +25,7 @@ __date__ = "$Date: 2017-04-07 10:28:45 +0000 (Fri, April 07, 2017) $"
 from collections import OrderedDict
 import os
 import shutil
-
+import numpy as np
 import pandas as pd
 
 from ccpn.AnalysisMetabolomics.lib import normalisation
@@ -74,6 +74,10 @@ class Decomposition:
     self.project.registerNotifier('Spectrum', 'change', self.refreshSourceDataOptions)
     self.project.registerNotifier('Spectrum', 'rename', self.refreshSourceDataOptions)
     self.project.registerNotifier('Spectrum', 'delete', self.refreshSourceDataOptions)
+    self.project.registerNotifier('SpectrumGroup', 'create', self.refreshSpectrumGroupFilter)
+    self.project.registerNotifier('SpectrumGroup', 'change', self.refreshSpectrumGroupFilter)
+    self.project.registerNotifier('SpectrumGroup', 'rename', self.refreshSpectrumGroupFilter)
+    self.project.registerNotifier('SpectrumGroup', 'delete', self.refreshSpectrumGroupFilter)
 
 
   # def deRegisterNotifiers(self):
@@ -91,6 +95,7 @@ class Decomposition:
     self.__presenter = value
     if value is not None:
       self.refreshSourceDataOptions()
+      self.refreshSpectrumGroupFilter()
 
   @property
   def method(self):
@@ -110,6 +115,13 @@ class Decomposition:
     if self.presenter is not None:
       self.presenter.setSourceDataOptions(self.getSourceData())
 
+  def refreshSpectrumGroupFilter(self, *args):
+    if self.presenter is not None:
+      self.presenter.setSpectrumGroups(self.getSpectrumGroups())
+
+  def getSpectrumGroups(self):
+    sg = [s for s in self.project.spectrumGroups]
+    return sg
 
   def getSourceData(self):
     sd = []
@@ -120,6 +132,7 @@ class Decomposition:
     # print(self.project.spectra)
     # print(list([s.axisCodes for s in self.project.spectra]))
     # print(sd)
+
     return sd
 
 
@@ -178,9 +191,13 @@ class Decomposition:
     self.__sourcesChanged = False
     sd = OrderedDict()
     for d in self.__sources:
-      sd[d] = self.project.getByPid('SP:{}'.format(d)).get1dSpectrumData()
-    l = [pd.Series(sd[name][1], index=sd[name][0], name=name) for name in sorted(sd.keys())]
-    self.__data = pd.concat(l, axis=1).T
+      spectrum = self.project.getByPid('SP:{}'.format(d))
+      data = np.array([spectrum.positions, spectrum.intensities])
+      sd[d] = data
+    l = [pd.Series(sd[name][1], name=name) for name in sorted(sd.keys())]
+    data = pd.concat(l, axis=1).T
+    data = data.replace(np.nan, 0)
+    self.__data =  data
 
   def normalize(self):
     if self.normalization.upper() == 'PQN':
@@ -232,7 +249,13 @@ class Decomposition:
       self.normalize()
       self.center()
       self.scale()
-      self.model = getattr(decomposition, self.__decomp)(self.__data)
+      # self.__decomp -->   PCA decomposition
+      # decomposition -->  module 'ccpn.AnalysisMetabolomics.lib.decomposition
+      # self.__data --> intensities as array
+
+      data = self.__data.replace(np.nan, 0)
+
+      self.model = getattr(decomposition, self.__decomp)(data)
       self.setAvailablePlotData()
 
 
