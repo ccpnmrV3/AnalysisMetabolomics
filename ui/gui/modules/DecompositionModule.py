@@ -41,6 +41,7 @@ class DecompositionModule:
     self.interactor = interactor
     self.project = application.project
     self.current = application.current
+    self.mainWindow = mainWindow
 
     self.__method = None
     self.__normalization = None
@@ -144,19 +145,28 @@ class DecompositionModule:
     return [self.project.getByPid('SP:{}'.format(source)).sliceColour
             for source in self.interactor.sources]
 
+  def getSpectra(self):
+    """
+    """
+    return [self.project.getByPid('SP:{}'.format(source))
+            for source in self.interactor.sources]
 
   def plot(self, target, xAxisLabel, yAxisLabel):
-    x = self.interactor.availablePlotData[xAxisLabel]
-    y = self.interactor.availablePlotData[yAxisLabel]
-
+    target.plotItem.clear()
+    xs = self.interactor.availablePlotData[xAxisLabel]
+    ys = self.interactor.availablePlotData[yAxisLabel]
     if (xAxisLabel.upper().startswith('PC') or
         yAxisLabel.upper().startswith('PC')):
       colourBrushes = [pg.functions.mkBrush(hexToRgb(hexColour))
                        for hexColour in self.getSourceDataColors()]
-      target.plotItem.plot(x, y, pen=None, symbol='o',
-                           symbolBrush=colourBrushes, clear=True)
+      for x, y, spectrum, brush in zip(xs, ys, self.getSpectra(), colourBrushes):
+        plot = target.plotItem.plot([x], [y], pen=None, symbol='o',
+                             symbolBrush=brush,)
+        plot.curve.setClickable(True)
+        plot.spectrum = spectrum
+        plot.sigClicked.connect(self._mouseClickEvent)
     else:
-      target.plotItem.plot(x, y, symbol='o', clear=True)
+      target.plotItem.plot(xs, ys, symbol='o', clear=True)
 
     if xAxisLabel.upper().startswith('PC'):
       target.addYOriginLine()
@@ -165,6 +175,15 @@ class DecompositionModule:
 
     target.plotItem.setLabel('bottom', xAxisLabel)
     target.plotItem.setLabel('left', yAxisLabel)
+
+  def _mouseClickEvent(self, i):
+    " Open a spectrum for the pca point"
+    spectrum = i.spectrum
+    spectrumDisplay = self.mainWindow.createSpectrumDisplay(spectrum)
+    if len(spectrumDisplay.strips) > 0:
+      self.mainWindow.current.strip = spectrumDisplay.strips[0]
+      if spectrum.dimensionCount == 1:
+        spectrumDisplay._maximiseRegions()
 
 
   def saveOutput(self):
