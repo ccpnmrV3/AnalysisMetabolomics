@@ -26,7 +26,7 @@ from collections import OrderedDict, namedtuple
 
 import pyqtgraph as pg
 from ccpn.AnalysisMetabolomics.ui.gui.widgets.PcaWidget import PcaWidget
-
+from ccpn.ui.gui.widgets.SideBar import _openSpectrumDisplay
 from ccpn.util.Colour import hexToRgb
 
 class DecompositionModule:
@@ -178,13 +178,9 @@ class DecompositionModule:
 
   def _mouseClickEvent(self, i):
     " Open a spectrum for the pca point"
-    spectrum = i.spectrum
-    spectrumDisplay = self.mainWindow.createSpectrumDisplay(spectrum)
-    if len(spectrumDisplay.strips) > 0:
-      self.mainWindow.current.strip = spectrumDisplay.strips[0]
-      if spectrum.dimensionCount == 1:
-        spectrumDisplay._maximiseRegions()
 
+    spectrum = i.spectrum
+    spectrumDisplay = _openSpectrumDisplay(self.mainWindow, spectrum)
 
   def saveOutput(self):
     saveName = self.widget.pcaOutput.sgNameEntryBox.text()
