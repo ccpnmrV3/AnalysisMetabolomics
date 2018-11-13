@@ -31,7 +31,7 @@ from ccpn.framework.Version import applicationVersion
 
 if __name__ == '__main__':
   from ccpn.util.GitTools import getAllRepositoriesGitCommit
-  applicationVersion = 'development: {AnalysisMetabolomics:.8s}'.format(**getAllRepositoriesGitCommit())
+  # applicationVersion = 'development: {AnalysisMetabolomics:.8s}'.format(**getAllRepositoriesGitCommit())
 
   # argument parser
   parser = Framework.defineProgramArguments()
