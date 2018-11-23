@@ -26,6 +26,7 @@ import numpy as np
 import pandas as pd
 from scipy.linalg import svd
 from scipy import stats
+from ccpn.core.lib.Cache import cached
 
 import sklearn.decomposition
 
@@ -160,6 +161,7 @@ class PCA:
 
 
   @property
+  @cached('_scorePCa', maxItems=2000, debug=False)
   def scores_(self):
     scores = np.dot(self.inputDF, self.loadings_.T)
     scoresDF = pd.DataFrame(scores)
