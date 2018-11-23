@@ -37,6 +37,7 @@ from ccpn.ui.gui.widgets.LineEdit import LineEdit
 from ccpn.ui.gui.widgets.ListWidget import ListWidget
 from ccpn.ui.gui.widgets.PulldownList import PulldownList
 from ccpn.ui.gui.widgets.Widget import Widget
+from ccpn.ui.gui.guiSettings import autoCorrectHexColour, getColours, CCPNGLWIDGET_HEXBACKGROUND
 
 
 class PcaWidget(CcpnModule):
@@ -134,8 +135,8 @@ class PcaPlot(QtWidgets.QWidget):
     QtWidgets.QWidget.__init__(self, parent)
     self.setLayout(QtWidgets.QVBoxLayout())
     self.presenter = presenter
-
-    self.plottingWidget = pg.PlotWidget(self)
+    bc = getColours()[CCPNGLWIDGET_HEXBACKGROUND]
+    self.plottingWidget = pg.PlotWidget(self, background=bc)
     self.plotItem = self.plottingWidget.getPlotItem()
     self.plotItem.getAxis('left').setWidth(36)
     self.plotItem.getAxis('bottom').setHeight(24)
@@ -155,7 +156,7 @@ class PcaPlot(QtWidgets.QWidget):
 
 
   def plot(self, *args):
-
+    # goes to /ui/gui/modules/DecompositionModule.py
     self.presenter.plot(self, self.xAxisSelector.currentData()[0],
                         self.yAxisSelector.currentData()[0])
 
