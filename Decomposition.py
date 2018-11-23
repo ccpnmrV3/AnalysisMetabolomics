@@ -33,10 +33,15 @@ from ccpn.AnalysisMetabolomics.lib import centering
 from ccpn.AnalysisMetabolomics.lib import scaling
 from ccpn.AnalysisMetabolomics.lib import decomposition
 from ccpn.AnalysisMetabolomics.lib.persistence import spectraDicToBrukerExperiment
+from ccpn.core.lib.Cache import cached
 
+from ccpn.core.lib.SpectrumLib import get1DdataInRange
 METABOLOMICS_SAVE_LOCATION = os.path.join('internal','metabolomics')
 
 class Decomposition:
+  """
+  Get the scores from console as dataframe: application.decomposition.model.scores_
+  """
 
   def __init__(self, application, presenter=None):
     self.project = application.project
@@ -135,6 +140,8 @@ class Decomposition:
 
     return sd
 
+  def _getData(self):
+    return self.__data
 
   @property
   def normalization(self):
@@ -186,18 +193,21 @@ class Decomposition:
     if self.auto:
       self.decompose()
 
-
-  def buildSourceData(self):
+  @cached('_buildSourceData', maxItems=256, debug=False)
+  def buildSourceData(self, sources, xRange=[-1,9]):
     self.__sourcesChanged = False
     sd = OrderedDict()
-    for d in self.__sources:
+
+    for d in sources:
       spectrum = self.project.getByPid('SP:{}'.format(d))
-      data = np.array([spectrum.positions, spectrum.intensities])
+      x,y = get1DdataInRange(spectrum.positions, spectrum.intensities, xRange)
+      data = np.array([x,y])
       sd[d] = data
     l = [pd.Series(sd[name][1], name=name) for name in sorted(sd.keys())]
     data = pd.concat(l, axis=1).T
     data = data.replace(np.nan, 0)
     self.__data =  data
+    return sources
 
   def normalize(self):
     if self.normalization.upper() == 'PQN':
@@ -245,7 +255,7 @@ class Decomposition:
       #   self.center()
       # if self.__scalingChanged:
       #   self.scale()
-      self.buildSourceData()
+      self.buildSourceData(self.__sources)
       self.normalize()
       self.center()
       self.scale()
