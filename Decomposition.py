@@ -121,7 +121,7 @@
 #
 #   def refreshSourceDataOptions(self, *args):
 #     if self.presenter is not None:
-#       self.presenter.setSourceDataOptions(self.getSourceData())
+#       self.presenter.setSourceDataOptions(self.getSpectra())
 #
 #   def refreshSpectrumGroupFilter(self, *args):
 #     if self.presenter is not None:
@@ -131,7 +131,7 @@
 #     sg = [s for s in self.project.spectrumGroups]
 #     return sg
 #
-#   def getSourceData(self):
+#   def getSpectra(self):
 #     sd = []
 #     sd += [s for s in self.project.spectra if
 #               (len(s.axisCodes) == 1) and (s.axisCodes[0].startswith('H'))]
@@ -143,7 +143,7 @@
 #
 #     return sd
 #
-#   def _getData(self):
+#   def _getRawData(self):
 #     return self.__data
 #
 #   @property

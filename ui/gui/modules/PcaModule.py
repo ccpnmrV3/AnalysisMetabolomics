@@ -38,7 +38,6 @@ from ccpn.ui.gui.widgets.ListWidget import ListWidget
 from ccpn.ui.gui.widgets.PulldownList import PulldownList
 from ccpn.ui.gui.widgets.Widget import Widget
 from ccpn.ui.gui.guiSettings import autoCorrectHexColour, getColours, CCPNGLWIDGET_HEXBACKGROUND
-from collections import OrderedDict, namedtuple
 from ccpn.ui.gui.widgets.SideBar import _openSpectrumDisplay
 from ccpn.util.Colour import hexToRgb
 from collections import OrderedDict
@@ -79,7 +78,7 @@ class Decomposition:
     self.availablePlotData = OrderedDict()
     self.registerNotifiers()
     self.method = 'PCA'
-    self.model = None
+    self.model = None # PCA base class
     self.auto = False
 
 
@@ -124,7 +123,7 @@ class Decomposition:
 
   def refreshSourceDataOptions(self, *args):
     if self.pcaModule is not None:
-      self.pcaModule.setSourceDataOptions(self.getSourceData())
+      self.pcaModule.setSourceDataOptions(self.getSpectra())
 
   def refreshSpectrumGroupFilter(self, *args):
     if self.pcaModule is not None:
@@ -134,19 +133,15 @@ class Decomposition:
     sg = [s for s in self.project.spectrumGroups]
     return sg
 
-  def getSourceData(self):
+  def getSpectra(self):
+    # Modify to have spectra by drag and drop and not all from project
     sd = []
     sd += [s for s in self.project.spectra if
               (len(s.axisCodes) == 1) and (s.axisCodes[0].startswith('H'))]
-    # if self.project.spectra:
-    #   raise Exception
-    # print(self.project.spectra)
-    # print(list([s.axisCodes for s in self.project.spectra]))
-    # print(sd)
-
     return sd
 
-  def _getData(self):
+  def _getRawData(self):
+    """ Returns a dataframe containg the 1D array of spectral intensities and the relative pid """
     return self.__data
 
   @property
@@ -156,9 +151,6 @@ class Decomposition:
   @normalization.setter
   def normalization(self, value):
     self.__normalization = value
-    # self.__normChanged = True
-    # self.__centChanged = True
-    # self.__scalingChanged = True
     if self.auto:
       self.decompose()
 
@@ -169,8 +161,6 @@ class Decomposition:
   @centering.setter
   def centering(self, value):
     self.__centering = value
-    # self.__centChanged = True
-    # self.__scalingChanged = True
     if self.auto:
       self.decompose()
 
@@ -187,20 +177,24 @@ class Decomposition:
 
   @property
   def sources(self):
+    """ list of pids"""
     return self.__sources
 
   @sources.setter
   def sources(self, value):
     self.__sources = value
-    # self.__sourcesChanged = True
-    # self.__normChanged = True
-    # self.__centChanged = True
-    # self.__scalingChanged = True
     if self.auto:
       self.decompose()
 
   @cached('_buildSourceData', maxItems=256, debug=False)
   def buildSourceData(self, sources, xRange=[-1,9]):
+    """
+
+    :param sources: list of pids
+    :param xRange: the region of interest in the spectrum
+    :return: the sources back
+    Sets the __data with a dataframe: each row is a spectrum. Coloumn 1 is the pid, all other columns are spectrum intesities
+    """
     self.__sourcesChanged = False
     sd = OrderedDict()
 
@@ -224,7 +218,6 @@ class Decomposition:
       pass
     else:
       raise NotImplementedError("Only PQN, TSA and 'none' type normalizations currently supported.")
-    # self.__normChanged = False
 
 
   def center(self):
@@ -236,7 +229,6 @@ class Decomposition:
       pass
     else:
       raise NotImplementedError("Only mean, median and 'none' type centerings currently supported.")
-    # self.__centChanged = False
 
 
   def scale(self):
@@ -252,25 +244,15 @@ class Decomposition:
 
 
   def decompose(self):
+    """
+    Here is where starts to plot
+    """
     if len(self.__sources) > 1:
-      # if self.__sourcesChanged:
-      #   self.buildSourceData()
-      # if self.__normChanged:
-      #   self.normalize()
-      # if self.__centChanged:
-      #   self.center()
-      # if self.__scalingChanged:
-      #   self.scale()
       self.buildSourceData(self.__sources)
       self.normalize()
       self.center()
       self.scale()
-      # self.__decomp -->   PCA decomposition
-      # decomposition -->  module 'ccpn.AnalysisMetabolomics.lib.decomposition
-      # self.__data --> intensities as array
-
       data = self.__data.replace(np.nan, 0)
-
       self.model = getattr(decomposition, self.__decomp)(data)
       self.setAvailablePlotData()
 
@@ -283,8 +265,6 @@ class Decomposition:
       self.availablePlotData['Explained Vairance'] = self.model.explainedVariance_
       for score in self.model.scores_:
         self.availablePlotData[score] = self.model.scores_[score].values
-
-
       defaults['xDefaultLeft'] = 'Component'
       defaults['yDefaultLeft'] = 'Explained Vairance'
       defaults['xDefaultRight'] = 'PC1'
@@ -303,7 +283,6 @@ class Decomposition:
       g = self.project.getByPid('SG:' + prefix)
     else:
       g = self.project.newSpectrumGroup(prefix)
-      # TODO: Wayne: deleted spectra should be removed from spectrum groups!
 
     toDeleteSpectra = [s for s in self.project.spectra if s.name.endswith(prefix)]
     for s in toDeleteSpectra:
@@ -337,7 +316,9 @@ class Decomposition:
 
   @property
   def scores(self):
-    return None
+    if self.model is not None:
+     scores = self.model.scores_
+     return scores
 
 
 class PcaModule(CcpnModule):
@@ -428,6 +409,7 @@ class PcaModule(CcpnModule):
     self.decomposition.scaling = scaling
 
   def setSourcesSelection(self, rowClicked):
+    """ this starts the pca machinery"""
     # should actually pass the selection to the interactor and have it bump back up...
 
     self.decomposition.sources = [s.text() for s in self.settings.sourceList.selectedItems()]
