@@ -24,7 +24,7 @@ __date__ = "$Date: 2017-04-07 10:28:45 +0000 (Fri, April 07, 2017) $"
 #=========================================================================================
 # Start of code
 #=========================================================================================
-
+from ccpn.util.Logging import getLogger
 import pyqtgraph as pg
 from PyQt5 import QtCore, QtGui, QtWidgets
 from ccpn.core.Spectrum import Spectrum
@@ -76,7 +76,6 @@ class Decomposition:
     self.__scalingChanged = True
     self.__deScaleFunc = lambda x: x
     self.availablePlotData = OrderedDict()
-    self.method = 'PCA'
     self.model = None # PCA base class
     self.auto = False
 
@@ -89,16 +88,6 @@ class Decomposition:
   def pcaModule(self, value):
     self.__pcaModule = value
 
-  @property
-  def method(self):
-    return self.__decomp
-
-  @method.setter
-  def method(self, value):
-    if value.upper() == 'PCA':
-      self.__decomp = value.upper()
-    else:
-      raise NotImplementedError('PCA is the only currently implemented decomposition method.')
 
   def getSpectra(self):
     # Modify to have spectra by drag and drop and not all from project
@@ -153,6 +142,46 @@ class Decomposition:
     if self.auto:
       self.decompose()
 
+  @property
+  def scores(self):
+    if self.model is not None:
+      scores = self.model.scores_
+      return scores
+
+
+
+  def decompose(self):
+    """
+    get the data, init the pca model and then plot the results
+    """
+
+    data = self.buildSourceData(self.__sources)
+    if data is not None:
+      if data.shape[0] > 1: # we have enough entries
+        data = data.replace(np.nan, 0)
+        self.normalize()
+        self.center()
+        self.scale()
+        self.model = PCA(data)
+        self._setAvailablePlotData()
+      else:
+        self.pcaModule.clearPlots()
+
+  def _setAvailablePlotData(self):
+    defaults = OrderedDict()
+    self.availablePlotData = OrderedDict()
+    self.availablePlotData['Component #'] = list(range(len(self.model.scores_)))
+    self.availablePlotData['Explained Vairance'] = self.model.explainedVariance_
+    for score in self.model.scores_:
+      self.availablePlotData[score] = self.model.scores_[score].values
+    defaults['xDefaultLeft'] = 'Component'
+    defaults['yDefaultLeft'] = 'Explained Vairance'
+    defaults['xDefaultRight'] = 'PC1'
+    defaults['yDefaultRight'] = 'PC2'
+
+    self.pcaModule.setAvailablePlotData(list(self.availablePlotData.keys()),
+                                        **defaults)
+
   def buildSourceFromSpectra(self, spectra, xRange=[-1,9]):
     """
 
@@ -163,9 +192,12 @@ class Decomposition:
     """
     spectraDict = OrderedDict()
     for spectrum in list(set(spectra)):
-      x,y = get1DdataInRange(spectrum.positions, spectrum.intensities, xRange)
-      data = np.array([x,y])
-      spectraDict[spectrum] = data
+      if spectrum.dimensionCount == 1:
+        x,y = get1DdataInRange(spectrum.positions, spectrum.intensities, xRange)
+        data = np.array([x,y])
+        spectraDict[spectrum] = data
+      else:
+        getLogger().warning('Not implemented yet. PCA works only with 1D spectra' )
     l = [pd.Series(spectraDict[name][1], name=name) for name in sorted(spectraDict.keys())]
     data = pd.concat(l, axis=1).T
     return data
@@ -183,20 +215,21 @@ class Decomposition:
     Sets the __data with a dataframe: each row is a spectrum. Coloumn 1 is the pid, all other columns are spectrum intesities
     """
     self.__sourcesChanged = False
-    sd = OrderedDict()
 
-    spectra = []
+    frames = []
     for pid in sources:
       obj = self.project.getByPid(pid)
       if isinstance(obj, Spectrum):
-        spectra.append(obj)
-      if isinstance(obj, SpectrumGroup):
+        frames.append(self.buildSourceFromSpectra([obj], xRange))
+      elif isinstance(obj, SpectrumGroup):
         for sp in obj.spectra:
-          spectra.append(sp)
-
-    data = self.buildSourceFromSpectra(spectra, xRange)
-    data = data.replace(np.nan, 0)
-    self.__data =  data
+          frames.append(self.buildSourceFromSpectra([sp], xRange))
+      else:
+        getLogger().warning('PCA not implemented for %s' % obj)
+    if len(frames)>0:
+      data = pd.concat(frames)
+      data = data.replace(np.nan, 0)
+      self.__data =  data
     return self.__data
 
   def normalize(self):
@@ -220,7 +253,6 @@ class Decomposition:
     else:
       raise NotImplementedError("Only mean, median and 'none' type centerings currently supported.")
 
-
   def scale(self):
     if self.scaling.lower() == 'pareto':
       self.__data, self.__deScaleFunc = scaling.paretoScale(self.__data)
@@ -230,39 +262,8 @@ class Decomposition:
       pass
     else:
       raise NotImplementedError("Only pareto, unit variance and 'none' type scalings currently supported.")
-    # self.__scalingChanged = False
 
 
-  def decompose(self):
-    """
-    Here is where starts to plot
-    """
-    # if len(self.__sources) > 1:
-    self.buildSourceData(self.__sources)
-    self.normalize()
-    self.center()
-    self.scale()
-    self.data = self.__data.replace(np.nan, 0)
-    self.model = PCA(self.data)
-    self.setAvailablePlotData()
-
-
-  def setAvailablePlotData(self):
-    defaults = OrderedDict()
-    if self.method == 'PCA':
-      self.availablePlotData = OrderedDict()
-      self.availablePlotData['Component #'] = list(range(len(self.model.scores_)))
-      self.availablePlotData['Explained Vairance'] = self.model.explainedVariance_
-      for score in self.model.scores_:
-        self.availablePlotData[score] = self.model.scores_[score].values
-      defaults['xDefaultLeft'] = 'Component'
-      defaults['yDefaultLeft'] = 'Explained Vairance'
-      defaults['xDefaultRight'] = 'PC1'
-      defaults['yDefaultRight'] = 'PC2'
-    else:
-      raise NotImplementedError('Only PCA output is currently supported.')
-    self.pcaModule.setAvailablePlotData(list(self.availablePlotData.keys()),
-                                        **defaults)
 
 
   def saveLoadingsToSpectra(self, prefix='test_pca', descale=True, components=None):
@@ -300,15 +301,7 @@ class Decomposition:
     g.spectra = loadingsSpectra
 
 
-  @property
-  def loadings(self):
-    return None
 
-  @property
-  def scores(self):
-    if self.model is not None:
-     scores = self.model.scores_
-     return scores
 
 
 class PcaModule(CcpnModule):
@@ -330,10 +323,11 @@ class PcaModule(CcpnModule):
       self.decomposition.pcaModule = self
 
     # labelSource =  Label(self.mainWidget, 'Source:', grid=(0,0))
-    self.sourceList = ListWidget(self.mainWidget, callback=self.setSourcesSelection, acceptDrops=True, grid=(0,1))
+    self.sourceList = ListWidget(self.mainWidget, acceptDrops=True, grid=(0,1))
     self.sourceList.setSelectDeleteContextMenu()
     self.sourceList.dropped.connect(self._sourceListDroppedCallback)
     self.sourceList.setMaximumHeight(100)
+    self.sourceList.itemSelectionChanged.connect(self._setSourcesSelection)
 
     self.pcaPlotLeft = PcaPlot(self.mainWidget, pcaModule=self, grid=(1,0))
     self.pcaPlotRight = PcaPlot(self.mainWidget, pcaModule=self, grid=(1,1))
@@ -347,9 +341,6 @@ class PcaModule(CcpnModule):
     i += 1
     ll = Label(self.settingsWidget, 'Descale Components:', grid=(i, 0))
     self.descaleCheck = CheckBox(self.settingsWidget, checked=True, grid=(i, 1))
-    i += 1
-    l0 = Label(self.settingsWidget, 'Method:', grid=(i,0))
-    self.decompMethodPulldown = PulldownList(self.settingsWidget, callback=self.setMethod, grid=(i,1))
     i +=1
     l2 = Label(self.settingsWidget, '1. Normalization:', grid=(i,0))
     self.normMethodPulldown = PulldownList(self.settingsWidget, callback=self.setNormalization, grid=(i,1))
@@ -364,31 +355,29 @@ class PcaModule(CcpnModule):
     l5 = Label(self.settingsWidget, 'Show Exp Graph:', grid=(i, 0))
     self.toggleLeftGraph = CheckBox(self.settingsWidget, checked=True, callback=self._toggleGraph, grid=(i, 1))
     self._toggleGraph()
-
+    self.normMethodPulldown.setData(['PQN', 'TSA', 'none'])
+    self.centMethodPulldown.setData(['Mean', 'Median', 'none'])
+    self.scalingMethodPulldown.setData(['Pareto', 'Unit Variance', 'none'])
 
     # layout.addWidget(self.pcaOutput, 3, 0, 1, 2)
 
-    self.__method = None
     self.__normalization = None
     self.__scaling = None
     self.__centering = None
 
-    self.setupWidget()
     if self.decomposition:
-      self.setMethod('PCA')
       self.setNormalization('PQN')
       self.setCentering('mean')
       self.setScaling('Pareto')
       self.decomposition.auto = True
 
-  def setupWidget(self):
-    self.decompMethodPulldown.setData(['PCA', ])
-    self.normMethodPulldown.setData(['PQN', 'TSA', 'none'])
-    self.centMethodPulldown.setData(['Mean', 'Median', 'none'])
-    self.scalingMethodPulldown.setData(['Pareto', 'Unit Variance', 'none'])
+
+  def clearPlots(self):
+    self.pcaPlotRight.clearPlot()
+    self.pcaPlotLeft.clearPlot()
 
   def _sourceListDroppedCallback(self, *args):
-    print(self.sourceList.getTexts())
+    print('Dropped: ',self.sourceList.getTexts()[-1])
 
   def _clearSelection(self, listWidget):
     for i in range(listWidget.count()):
@@ -407,13 +396,6 @@ class PcaModule(CcpnModule):
       sdo = [s.name for s in sourceData]
       self.sourceList.addItems(sdo)
 
-  def setMethod(self, method):
-    self.__method = method
-    self.decompMethodPulldown.select(method)
-    self.decomposition.method = method
-
-  def getMethod(self):
-    return self.__method
 
   def getNormalization(self):
     return self.__normalization
@@ -439,14 +421,18 @@ class PcaModule(CcpnModule):
     self.scalingMethodPulldown.select(scaling)
     self.decomposition.scaling = scaling
 
-  def setSourcesSelection(self, rowClicked):
+  def _setSourcesSelection(self):
     """ this starts the pca machinery"""
-    # should actually pass the selection to the interactor and have it bump back up...
+    if len( self.sourceList.getSelectedTexts()) == 0:
+      self.clearPlots()
+      return
     self.decomposition.sources = self.sourceList.getSelectedTexts()
 
   def setAvailablePlotData(self, availablePlotData=None,
                            xDefaultLeft=None, yDefaultLeft=None,
                            xDefaultRight=None, yDefaultRight=None):
+    # called from decomposition
+
     if availablePlotData is None:
       availablePlotData = list(self.decomposition.availablePlotData.keys())
 
@@ -505,6 +491,10 @@ class PcaPlot(Widget):
     self.xAxisSelector = PulldownList(self, callback=self.plotPCA,grid=(1,1))
     label2 = Label(self, 'y:',grid=(2,0))
     self.yAxisSelector = PulldownList(self, callback=self.plotPCA,grid=(2,1))
+
+
+  def clearPlot(self):
+    self.plotItem.clearPlots()
 
   def plotPCA(self, *args):
     gridColour = getColours()[GUISTRIP_PIVOT]
