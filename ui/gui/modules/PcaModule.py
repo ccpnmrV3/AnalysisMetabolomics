@@ -27,7 +27,8 @@ __date__ = "$Date: 2017-04-07 10:28:45 +0000 (Fri, April 07, 2017) $"
 
 import pyqtgraph as pg
 from PyQt5 import QtCore, QtGui, QtWidgets
-
+from ccpn.core.Spectrum import Spectrum
+from ccpn.core.SpectrumGroup import SpectrumGroup
 from ccpn.ui.gui.modules.CcpnModule import CcpnModule
 from ccpn.ui.gui.widgets.Base import Base
 from ccpn.ui.gui.widgets.Button import Button
@@ -38,7 +39,7 @@ from ccpn.ui.gui.widgets.ListWidget import ListWidget
 from ccpn.ui.gui.widgets.PulldownList import PulldownList
 from ccpn.ui.gui.widgets.Widget import Widget
 from ccpn.ui.gui.guiSettings import autoCorrectHexColour, getColours, CCPNGLWIDGET_HEXBACKGROUND
-from ccpn.ui.gui.widgets.SideBar import _openSpectrumDisplay
+from ccpn.ui.gui.widgets.SideBar import _openItemObject
 from ccpn.util.Colour import hexToRgb
 from collections import OrderedDict
 import os
@@ -48,7 +49,7 @@ import pandas as pd
 from ccpn.AnalysisMetabolomics.lib import normalisation
 from ccpn.AnalysisMetabolomics.lib import centering
 from ccpn.AnalysisMetabolomics.lib import scaling
-from ccpn.AnalysisMetabolomics.lib import decomposition
+from ccpn.AnalysisMetabolomics.lib.decomposition import PCA
 from ccpn.AnalysisMetabolomics.lib.persistence import spectraDicToBrukerExperiment
 from ccpn.core.lib.Cache import cached
 from ccpn.core.lib.SpectrumLib import get1DdataInRange
@@ -58,17 +59,16 @@ METABOLOMICS_SAVE_LOCATION = os.path.join('internal','metabolomics')
 class Decomposition:
   """
   Base class for the Decomposition Module (the old "interactor"`!)
-  Get the scores from console as dataframe: application.decomposition.model.scores_
   """
 
   def __init__(self, project):
     self.project = project
     self.__pcaModule = None #(the old "presenter"!)
-    self.__sources = []
+    self.__sources = [] # list of pids
     self.__normalization = None
     self.__centering = None
     self.__scaling = None
-    self.__decomp = None
+    self.__decomp = None # 'Only PCA at the moment'
     self.__data = None
     self.__sourcesChanged = True
     self.__normChanged = True
@@ -76,27 +76,26 @@ class Decomposition:
     self.__scalingChanged = True
     self.__deScaleFunc = lambda x: x
     self.availablePlotData = OrderedDict()
-    self.registerNotifiers()
     self.method = 'PCA'
     self.model = None # PCA base class
     self.auto = False
 
 
-  def registerNotifiers(self):
-    # TODO put inside the gui module
-    self.project.registerNotifier('Spectrum', 'create', self.refreshSourceDataOptions)
-    self.project.registerNotifier('Spectrum', 'change', self.refreshSourceDataOptions)
-    self.project.registerNotifier('Spectrum', 'rename', self.refreshSourceDataOptions)
-    self.project.registerNotifier('Spectrum', 'delete', self.refreshSourceDataOptions)
-    self.project.registerNotifier('SpectrumGroup', 'create', self.refreshSpectrumGroupFilter)
-    self.project.registerNotifier('SpectrumGroup', 'change', self.refreshSpectrumGroupFilter)
-    self.project.registerNotifier('SpectrumGroup', 'rename', self.refreshSpectrumGroupFilter)
-    self.project.registerNotifier('SpectrumGroup', 'delete', self.refreshSpectrumGroupFilter)
-
-
-  def deRegisterNotifiers(self):
-    # TODO put inside the gui module
-    pass
+  # def registerNotifiers(self):
+  #   # TODO put inside the gui module
+  #   self.project.registerNotifier('Spectrum', 'create', self.refreshSourceDataOptions)
+  #   self.project.registerNotifier('Spectrum', 'change', self.refreshSourceDataOptions)
+  #   self.project.registerNotifier('Spectrum', 'rename', self.refreshSourceDataOptions)
+  #   self.project.registerNotifier('Spectrum', 'delete', self.refreshSourceDataOptions)
+  #   self.project.registerNotifier('SpectrumGroup', 'create', self.refreshSpectrumGroupFilter)
+  #   self.project.registerNotifier('SpectrumGroup', 'change', self.refreshSpectrumGroupFilter)
+  #   self.project.registerNotifier('SpectrumGroup', 'rename', self.refreshSpectrumGroupFilter)
+  #   self.project.registerNotifier('SpectrumGroup', 'delete', self.refreshSpectrumGroupFilter)
+  #
+  #
+  # def deRegisterNotifiers(self):
+  #   # TODO put inside the gui module
+  #   pass
 
 
   @property
@@ -106,9 +105,6 @@ class Decomposition:
   @pcaModule.setter
   def pcaModule(self, value):
     self.__pcaModule = value
-    if value is not None:
-      self.refreshSourceDataOptions()
-      self.refreshSpectrumGroupFilter()
 
   @property
   def method(self):
@@ -120,18 +116,6 @@ class Decomposition:
       self.__decomp = value.upper()
     else:
       raise NotImplementedError('PCA is the only currently implemented decomposition method.')
-
-  def refreshSourceDataOptions(self, *args):
-    if self.pcaModule is not None:
-      self.pcaModule.setSourceDataOptions(self.getSpectra())
-
-  def refreshSpectrumGroupFilter(self, *args):
-    if self.pcaModule is not None:
-      self.pcaModule.setSpectrumGroups(self.getSpectrumGroups())
-
-  def getSpectrumGroups(self):
-    sg = [s for s in self.project.spectrumGroups]
-    return sg
 
   def getSpectra(self):
     # Modify to have spectra by drag and drop and not all from project
@@ -186,7 +170,27 @@ class Decomposition:
     if self.auto:
       self.decompose()
 
-  @cached('_buildSourceData', maxItems=256, debug=False)
+  def buildSourceFromSpectra(self, spectra, xRange=[-1,9]):
+    """
+
+    :param spectra: list of spectra
+    :param xRange: the region of interest in the spectrum
+    :return: the sources back
+    Sets the __data with a dataframe: each row is a spectrum. Coloumn 1 is the pid, all other columns are spectrum intesities
+    """
+    spectraDict = OrderedDict()
+    for spectrum in list(set(spectra)):
+      x,y = get1DdataInRange(spectrum.positions, spectrum.intensities, xRange)
+      data = np.array([x,y])
+      spectraDict[spectrum] = data
+    l = [pd.Series(spectraDict[name][1], name=name) for name in sorted(spectraDict.keys())]
+    data = pd.concat(l, axis=1).T
+    return data
+
+
+
+
+  # @cached('_buildSourceData', maxItems=256, debug=False)
   def buildSourceData(self, sources, xRange=[-1,9]):
     """
 
@@ -198,16 +202,19 @@ class Decomposition:
     self.__sourcesChanged = False
     sd = OrderedDict()
 
-    for d in sources:
-      spectrum = self.project.getByPid('SP:{}'.format(d))
-      x,y = get1DdataInRange(spectrum.positions, spectrum.intensities, xRange)
-      data = np.array([x,y])
-      sd[d] = data
-    l = [pd.Series(sd[name][1], name=name) for name in sorted(sd.keys())]
-    data = pd.concat(l, axis=1).T
+    spectra = []
+    for pid in sources:
+      obj = self.project.getByPid(pid)
+      if isinstance(obj, Spectrum):
+        spectra.append(obj)
+      if isinstance(obj, SpectrumGroup):
+        for sp in obj.spectra:
+          spectra.append(sp)
+
+    data = self.buildSourceFromSpectra(spectra, xRange)
     data = data.replace(np.nan, 0)
     self.__data =  data
-    return sources
+    return self.__data
 
   def normalize(self):
     if self.normalization.upper() == 'PQN':
@@ -247,14 +254,14 @@ class Decomposition:
     """
     Here is where starts to plot
     """
-    if len(self.__sources) > 1:
-      self.buildSourceData(self.__sources)
-      self.normalize()
-      self.center()
-      self.scale()
-      data = self.__data.replace(np.nan, 0)
-      self.model = getattr(decomposition, self.__decomp)(data)
-      self.setAvailablePlotData()
+    # if len(self.__sources) > 1:
+    self.buildSourceData(self.__sources)
+    self.normalize()
+    self.center()
+    self.scale()
+    self.data = self.__data.replace(np.nan, 0)
+    self.model = PCA(self.data)
+    self.setAvailablePlotData()
 
 
   def setAvailablePlotData(self):
@@ -362,19 +369,14 @@ class PcaModule(CcpnModule):
     self.settings.normMethodPulldown.setData(['PQN', 'TSA', 'none'])
     self.settings.centMethodPulldown.setData(['Mean', 'Median', 'none'])
     self.settings.scalingMethodPulldown.setData(['Pareto', 'Unit Variance', 'none'])
-    self.decomposition.refreshSourceDataOptions()
-    self.decomposition.refreshSpectrumGroupFilter()
+    # self.decomposition.refreshSourceDataOptions()
+    # self.decomposition.refreshSpectrumGroupFilter()
 
   def setSourceDataOptions(self, sourceData=None):
     self.settings.sourceList.clear()
     if sourceData is not None:
       sdo = [s.name for s in sourceData]
       self.settings.sourceList.addItems(sdo)
-
-  def setSpectrumGroups(self, spectrumGroups=None):
-    self.settings.spectrumGroupsList.clear()
-    if spectrumGroups is not None:
-      self.settings.spectrumGroupsList.setObjects(spectrumGroups)
 
   def setMethod(self, method):
     self.__method = method
@@ -411,8 +413,8 @@ class PcaModule(CcpnModule):
   def setSourcesSelection(self, rowClicked):
     """ this starts the pca machinery"""
     # should actually pass the selection to the interactor and have it bump back up...
-
-    self.decomposition.sources = [s.text() for s in self.settings.sourceList.selectedItems()]
+    print('Selection mand')
+    self.decomposition.sources = self.settings.sourceList.getSelectedTexts()
 
   def setAvailablePlotData(self, availablePlotData=None,
                            xDefaultLeft=None, yDefaultLeft=None,
@@ -432,47 +434,46 @@ class PcaModule(CcpnModule):
 
   def getSourceDataColors(self):
     """
-    Should this move to the interactors???
     """
-    return [self.project.getByPid('SP:{}'.format(source)).sliceColour
+    return [self.project.getByPid(source).sliceColour
             for source in self.decomposition.sources]
 
   def getSpectra(self):
     """
     """
-    return [self.project.getByPid('SP:{}'.format(source))
-            for source in self.decomposition.sources]
+    return [self.project.getByPid(sp) for sp in self.decomposition.sources]
 
-  def plot(self, target, xAxisLabel, yAxisLabel):
-    target.plotItem.clear()
+  def plotResults(self, plotWidget, xAxisLabel, yAxisLabel):
+    plotWidget.plotItem.clear()
     xs = self.decomposition.availablePlotData[xAxisLabel]
     ys = self.decomposition.availablePlotData[yAxisLabel]
     if (xAxisLabel.upper().startswith('PC') or
         yAxisLabel.upper().startswith('PC')):
-      colourBrushes = [pg.functions.mkBrush(hexToRgb(hexColour))
-                       for hexColour in self.getSourceDataColors()]
-      for x, y, spectrum, brush in zip(xs, ys, self.getSpectra(), colourBrushes):
-        plot = target.plotItem.plot([x], [y], pen=None, symbol='o',
-                                    symbolBrush=brush, )
+      # colourBrushes = [pg.functions.mkBrush(hexToRgb(hexColour))
+      #                  for hexColour in self.getSourceDataColors()]
+      for x, y, in zip(xs, ys,):
+        plot = plotWidget.plotItem.plot([x], [y], pen=None, symbol='o',
+                                        )
         plot.curve.setClickable(True)
-        plot.spectrum = spectrum
-        plot.sigClicked.connect(self._mouseClickEvent)
+        # plot.object = object
+        # plot.sigClicked.connect(self._mouseClickEvent)
     else:
-      target.plotItem.plot(xs, ys, symbol='o', clear=True)
+      plotWidget.plotItem.plot(xs, ys, symbol='o', clear=True)
 
     if xAxisLabel.upper().startswith('PC'):
-      target.addYOriginLine()
+      plotWidget.addYOriginLine()
     if yAxisLabel.upper().startswith('PC'):
-      target.addXOriginLine()
+      plotWidget.addXOriginLine()
 
-    target.plotItem.setLabel('bottom', xAxisLabel)
-    target.plotItem.setLabel('left', yAxisLabel)
+    plotWidget.plotItem.setLabel('bottom', xAxisLabel)
+    plotWidget.plotItem.setLabel('left', yAxisLabel)
 
   def _mouseClickEvent(self, i):
     " Open a spectrum for the pca point"
 
-    spectrum = i.spectrum
-    spectrumDisplay = _openSpectrumDisplay(self.mainWindow, spectrum)
+    obj = i.object
+    if obj is not None:
+      _openItemObject(self.mainWindow, [obj])
 
   def saveOutput(self):
     saveName = self.pcaOutput.sgNameEntryBox.text()
@@ -510,47 +511,27 @@ class PcaSettings(Widget):
     self.scalingMethodPulldown = PulldownList(self, callback=parent.setScaling)
     column2Layout.addWidget(self.scalingMethodPulldown, 2, 1, 1, 1)
 
-    spectrumGroupsLabel = Label(self, 'SpectrumGroups:')
-    self.layout().addWidget(spectrumGroupsLabel)
 
-    self.spectrumGroupsList = ListWidget(self, callback=self._filterBySpectrumGroups)
-    self.spectrumGroupsList.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
-    self.spectrumGroupsList.clearSelection = self._clearSpectrumGroupSelection
-    self.spectrumGroupsList.setSelectContextMenu()
-    self.layout().addWidget(self.spectrumGroupsList)
-
-    spectraLabel = Label(self, 'Spectra Source:')
+    spectraLabel = Label(self, 'Source:')
     self.layout().addWidget(spectraLabel)
-    self.sourceList = ListWidget(self, callback=parent.setSourcesSelection)
+
+    self.sourceList = ListWidget(self, callback=parent.setSourcesSelection, acceptDrops=True, copyDrop=False )
     self.sourceList.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
-    self.sourceList.setSelectContextMenu()
+    self.sourceList.setSelectDeleteContextMenu()
+    self.sourceList.dropped.connect(self._sourceListCallback)
 
     self.layout().addWidget(self.sourceList)
 
     self.setMaximumHeight(100)
 
+  def _sourceListCallback(self, *args):
+    print(args)
+    print(self.sourceList.getTexts())
+
   def _clearSelection(self, listWidget):
     for i in range(listWidget.count()):
       item = listWidget.item(i)
       item.setSelected(False)
-
-  def _clearSpectrumGroupSelection(self):
-    print('This function has not been implemented yet.')
-    # self._clearSelection(self.spectrumGroupsList)
-    # self.sourceList.clear()
-    # self.parent.setSourcesSelection(None)
-
-
-  def _filterBySpectrumGroups(self, rowClicked):
-    sGroups = self.spectrumGroupsList.getSelectedObjects()
-
-    # self.sourceList.hideAllItems()
-    self.sourceList.clearSelection()
-    self.parent.setSourcesSelection(None)
-    spectra = [sp for sg in sGroups for sp in sg.spectra]
-    self.sourceList.showItems([spectrum.name for spectrum in spectra], select=True)
-
-    self.parent.setSourcesSelection(None)
 
 
 
@@ -569,19 +550,19 @@ class PcaPlot(QtWidgets.QWidget):
     selectorLayout = QtWidgets.QHBoxLayout()
 
     selectorLayout.addWidget(Label(self, 'x:'))
-    self.xAxisSelector = PulldownList(self, callback=self.plot)
+    self.xAxisSelector = PulldownList(self, callback=self.plotPCA)
     selectorLayout.addWidget(self.xAxisSelector)
     selectorLayout.addWidget(Label(self, 'y:'))
-    self.yAxisSelector = PulldownList(self, callback=self.plot)
+    self.yAxisSelector = PulldownList(self, callback=self.plotPCA)
     selectorLayout.addWidget(self.yAxisSelector)
     selectorLayout.addStretch()
 
     self.layout().addLayout(selectorLayout)
 
 
-  def plot(self, *args):
+  def plotPCA(self, *args):
     # goes to /ui/gui/modules/DecompositionModule.py
-    self.parent.plot(self, self.xAxisSelector.currentData()[0],
+    self.parent.plotResults(self, self.xAxisSelector.currentData()[0],
                         self.yAxisSelector.currentData()[0])
 
   def addXOriginLine(self):
