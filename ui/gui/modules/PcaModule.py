@@ -38,7 +38,7 @@ from ccpn.ui.gui.widgets.LineEdit import LineEdit
 from ccpn.ui.gui.widgets.ListWidget import ListWidget
 from ccpn.ui.gui.widgets.PulldownList import PulldownList
 from ccpn.ui.gui.widgets.Widget import Widget
-from ccpn.ui.gui.guiSettings import autoCorrectHexColour, getColours, CCPNGLWIDGET_HEXBACKGROUND
+from ccpn.ui.gui.guiSettings import autoCorrectHexColour, getColours, CCPNGLWIDGET_HEXBACKGROUND, GUISTRIP_PIVOT
 from ccpn.ui.gui.widgets.SideBar import _openItemObject
 from ccpn.util.Colour import hexToRgb
 from collections import OrderedDict
@@ -79,23 +79,6 @@ class Decomposition:
     self.method = 'PCA'
     self.model = None # PCA base class
     self.auto = False
-
-
-  # def registerNotifiers(self):
-  #   # TODO put inside the gui module
-  #   self.project.registerNotifier('Spectrum', 'create', self.refreshSourceDataOptions)
-  #   self.project.registerNotifier('Spectrum', 'change', self.refreshSourceDataOptions)
-  #   self.project.registerNotifier('Spectrum', 'rename', self.refreshSourceDataOptions)
-  #   self.project.registerNotifier('Spectrum', 'delete', self.refreshSourceDataOptions)
-  #   self.project.registerNotifier('SpectrumGroup', 'create', self.refreshSpectrumGroupFilter)
-  #   self.project.registerNotifier('SpectrumGroup', 'change', self.refreshSpectrumGroupFilter)
-  #   self.project.registerNotifier('SpectrumGroup', 'rename', self.refreshSpectrumGroupFilter)
-  #   self.project.registerNotifier('SpectrumGroup', 'delete', self.refreshSpectrumGroupFilter)
-  #
-  #
-  # def deRegisterNotifiers(self):
-  #   # TODO put inside the gui module
-  #   pass
 
 
   @property
@@ -338,49 +321,95 @@ class PcaModule(CcpnModule):
     CcpnModule.__init__(self,mainWindow=mainWindow, name='PCA',)
 
     self.mainWindow = mainWindow
-    self.current = self.mainWindow.current
-    self.application = self.mainWindow.application
-    self.project = self.mainWindow.project
-    self.settings = PcaSettings(self)
-    self.pcaPlotLeft = PcaPlot(self)
-    self.pcaPlotRight = PcaPlot(self)
-    self.pcaOutput = PcaOutput(self)
-    self.decomposition = Decomposition(self.project)
-    self.decomposition.pcaModule = self
+    self.decomposition = None
+    if self.mainWindow:
+      self.current = self.mainWindow.current
+      self.application = self.mainWindow.application
+      self.project = self.mainWindow.project
+      self.decomposition = Decomposition(self.project)
+      self.decomposition.pcaModule = self
 
-    self.layout.addWidget(self.settings, 0, 0, 1, 2)
-    self.layout.addWidget(self.pcaPlotLeft, 1, 0, 2, 1)
-    self.layout.addWidget(self.pcaPlotRight, 1, 1, 2, 1)
-    self.layout.addWidget(self.pcaOutput, 3, 0, 1, 2)
+    # labelSource =  Label(self.mainWidget, 'Source:', grid=(0,0))
+    self.sourceList = ListWidget(self.mainWidget, callback=self.setSourcesSelection, acceptDrops=True, grid=(0,1))
+    self.sourceList.setSelectDeleteContextMenu()
+    self.sourceList.dropped.connect(self._sourceListDroppedCallback)
+    self.sourceList.setMaximumHeight(100)
+
+    self.pcaPlotLeft = PcaPlot(self.mainWidget, pcaModule=self, grid=(1,0))
+    self.pcaPlotRight = PcaPlot(self.mainWidget, pcaModule=self, grid=(1,1))
+    self.saveButton = Button(self.mainWidget, 'Create PCA SpectrumGroup ', callback=self.saveOutput, grid=(2, 1))
+
+
+    #### settings widgets
+    i = 0
+    l = Label(self.settingsWidget, 'Output name:', grid=(i, 0))
+    self.sgNameEntryBox = LineEdit(self.settingsWidget, text='pca_001', grid=(i, 1))
+    i += 1
+    ll = Label(self.settingsWidget, 'Descale Components:', grid=(i, 0))
+    self.descaleCheck = CheckBox(self.settingsWidget, checked=True, grid=(i, 1))
+    i += 1
+    l0 = Label(self.settingsWidget, 'Method:', grid=(i,0))
+    self.decompMethodPulldown = PulldownList(self.settingsWidget, callback=self.setMethod, grid=(i,1))
+    i +=1
+    l2 = Label(self.settingsWidget, '1. Normalization:', grid=(i,0))
+    self.normMethodPulldown = PulldownList(self.settingsWidget, callback=self.setNormalization, grid=(i,1))
+    i += 1
+    l3 = Label(self.settingsWidget, '2. Centering:', grid=(i,0))
+    self.centMethodPulldown = PulldownList(self.settingsWidget, callback=self.setCentering, grid=(i,1))
+    i += 1
+    l4 = Label(self.settingsWidget, '3. Scaling:', grid=(i,0))
+    self.scalingMethodPulldown = PulldownList(self.settingsWidget, callback=self.setScaling,  grid=(i,1))
+
+    i += 1
+    l5 = Label(self.settingsWidget, 'Show Exp Graph:', grid=(i, 0))
+    self.toggleLeftGraph = CheckBox(self.settingsWidget, checked=True, callback=self._toggleGraph, grid=(i, 1))
+    self._toggleGraph()
+
+
+    # layout.addWidget(self.pcaOutput, 3, 0, 1, 2)
+
     self.__method = None
     self.__normalization = None
     self.__scaling = None
     self.__centering = None
 
     self.setupWidget()
-    self.setMethod('PCA')
-    self.setNormalization('PQN')
-    self.setCentering('mean')
-    self.setScaling('Pareto')
-    self.decomposition.auto = True
+    if self.decomposition:
+      self.setMethod('PCA')
+      self.setNormalization('PQN')
+      self.setCentering('mean')
+      self.setScaling('Pareto')
+      self.decomposition.auto = True
 
   def setupWidget(self):
-    self.settings.decompMethodPulldown.setData(['PCA', ])
-    self.settings.normMethodPulldown.setData(['PQN', 'TSA', 'none'])
-    self.settings.centMethodPulldown.setData(['Mean', 'Median', 'none'])
-    self.settings.scalingMethodPulldown.setData(['Pareto', 'Unit Variance', 'none'])
-    # self.decomposition.refreshSourceDataOptions()
-    # self.decomposition.refreshSpectrumGroupFilter()
+    self.decompMethodPulldown.setData(['PCA', ])
+    self.normMethodPulldown.setData(['PQN', 'TSA', 'none'])
+    self.centMethodPulldown.setData(['Mean', 'Median', 'none'])
+    self.scalingMethodPulldown.setData(['Pareto', 'Unit Variance', 'none'])
+
+  def _sourceListDroppedCallback(self, *args):
+    print(self.sourceList.getTexts())
+
+  def _clearSelection(self, listWidget):
+    for i in range(listWidget.count()):
+      item = listWidget.item(i)
+      item.setSelected(False)
+
+  def _toggleGraph(self):
+    if self.toggleLeftGraph.isChecked():
+      self.pcaPlotLeft.show()
+    else:
+      self.pcaPlotLeft.hide()
 
   def setSourceDataOptions(self, sourceData=None):
     self.settings.sourceList.clear()
     if sourceData is not None:
       sdo = [s.name for s in sourceData]
-      self.settings.sourceList.addItems(sdo)
+      self.sourceList.addItems(sdo)
 
   def setMethod(self, method):
     self.__method = method
-    self.settings.decompMethodPulldown.select(method)
+    self.decompMethodPulldown.select(method)
     self.decomposition.method = method
 
   def getMethod(self):
@@ -391,7 +420,7 @@ class PcaModule(CcpnModule):
 
   def setNormalization(self, normalization):
     self.__normalization = normalization
-    self.settings.normMethodPulldown.select(normalization)
+    self.normMethodPulldown.select(normalization)
     self.decomposition.normalization = normalization
 
   def getCentering(self):
@@ -399,7 +428,7 @@ class PcaModule(CcpnModule):
 
   def setCentering(self, centering):
     self.__centering = centering
-    self.settings.centMethodPulldown.select(centering)
+    self.centMethodPulldown.select(centering)
     self.decomposition.centering = centering
 
   def getScaling(self):
@@ -407,14 +436,13 @@ class PcaModule(CcpnModule):
 
   def setScaling(self, scaling):
     self.__scaling = scaling
-    self.settings.scalingMethodPulldown.select(scaling)
+    self.scalingMethodPulldown.select(scaling)
     self.decomposition.scaling = scaling
 
   def setSourcesSelection(self, rowClicked):
     """ this starts the pca machinery"""
     # should actually pass the selection to the interactor and have it bump back up...
-    print('Selection mand')
-    self.decomposition.sources = self.settings.sourceList.getSelectedTexts()
+    self.decomposition.sources = self.sourceList.getSelectedTexts()
 
   def setAvailablePlotData(self, availablePlotData=None,
                            xDefaultLeft=None, yDefaultLeft=None,
@@ -443,30 +471,6 @@ class PcaModule(CcpnModule):
     """
     return [self.project.getByPid(sp) for sp in self.decomposition.sources]
 
-  def plotResults(self, plotWidget, xAxisLabel, yAxisLabel):
-    plotWidget.plotItem.clear()
-    xs = self.decomposition.availablePlotData[xAxisLabel]
-    ys = self.decomposition.availablePlotData[yAxisLabel]
-    if (xAxisLabel.upper().startswith('PC') or
-        yAxisLabel.upper().startswith('PC')):
-      # colourBrushes = [pg.functions.mkBrush(hexToRgb(hexColour))
-      #                  for hexColour in self.getSourceDataColors()]
-      for x, y, in zip(xs, ys,):
-        plot = plotWidget.plotItem.plot([x], [y], pen=None, symbol='o',
-                                        )
-        plot.curve.setClickable(True)
-        # plot.object = object
-        # plot.sigClicked.connect(self._mouseClickEvent)
-    else:
-      plotWidget.plotItem.plot(xs, ys, symbol='o', clear=True)
-
-    if xAxisLabel.upper().startswith('PC'):
-      plotWidget.addYOriginLine()
-    if yAxisLabel.upper().startswith('PC'):
-      plotWidget.addXOriginLine()
-
-    plotWidget.plotItem.setLabel('bottom', xAxisLabel)
-    plotWidget.plotItem.setLabel('left', yAxisLabel)
 
   def _mouseClickEvent(self, i):
     " Open a spectrum for the pca point"
@@ -481,114 +485,78 @@ class PcaModule(CcpnModule):
     self.decomposition.saveLoadingsToSpectra(prefix=saveName, descale=descale)
 
 
-class PcaSettings(Widget):
-  def __init__(self, parent=None, **kwds):
-    super().__init__(parent, **kwds)
+
+
+
+class PcaPlot(Widget):
+  def __init__(self, parent, pcaModule, **kwargs):
+    super().__init__(parent, setLayout=True, **kwargs)
     self.parent = parent
-
-    self.setLayout(QtWidgets.QHBoxLayout())
-    column1Layout = QtWidgets.QVBoxLayout()
-    self.layout().addLayout(column1Layout)
-
-    column1Layout.addWidget(Label(self, 'Method:'))
-    self.decompMethodPulldown = PulldownList(self, callback=parent.setMethod)
-    column1Layout.addWidget(self.decompMethodPulldown)
-    # self.goButton = Button(self, 'GO!', hPolicy='fixed', callback=parent.go)
-    # column1Layout.addWidget(self.goButton)
-    column1Layout.addStretch()
-
-    column2Layout = QtWidgets.QGridLayout()
-    self.layout().addLayout(column2Layout)
-    column2Layout.addWidget(Label(self, '1. Normalization:'), 0, 0, 1, 1)
-    self.normMethodPulldown = PulldownList(self, callback=parent.setNormalization)
-    column2Layout.addWidget(self.normMethodPulldown, 0, 1, 1, 1)
-
-    column2Layout.addWidget(Label(self, '2. Centering:'), 1, 0, 1, 1)
-    self.centMethodPulldown = PulldownList(self, callback=parent.setCentering)
-    column2Layout.addWidget(self.centMethodPulldown, 1, 1, 1, 1)
-
-    column2Layout.addWidget(Label(self, '3. Scaling:'), 2, 0, 1, 1)
-    self.scalingMethodPulldown = PulldownList(self, callback=parent.setScaling)
-    column2Layout.addWidget(self.scalingMethodPulldown, 2, 1, 1, 1)
-
-
-    spectraLabel = Label(self, 'Source:')
-    self.layout().addWidget(spectraLabel)
-
-    self.sourceList = ListWidget(self, callback=parent.setSourcesSelection, acceptDrops=True, copyDrop=False )
-    self.sourceList.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
-    self.sourceList.setSelectDeleteContextMenu()
-    self.sourceList.dropped.connect(self._sourceListCallback)
-
-    self.layout().addWidget(self.sourceList)
-
-    self.setMaximumHeight(100)
-
-  def _sourceListCallback(self, *args):
-    print(args)
-    print(self.sourceList.getTexts())
-
-  def _clearSelection(self, listWidget):
-    for i in range(listWidget.count()):
-      item = listWidget.item(i)
-      item.setSelected(False)
-
-
-
-class PcaPlot(QtWidgets.QWidget):
-  def __init__(self, parent=None, **kwargs):
-    QtWidgets.QWidget.__init__(self, parent)
-    self.setLayout(QtWidgets.QVBoxLayout())
-    self.parent = parent
+    self.pcaModule = pcaModule
     bc = getColours()[CCPNGLWIDGET_HEXBACKGROUND]
     self.plottingWidget = pg.PlotWidget(self, background=bc)
     self.plotItem = self.plottingWidget.getPlotItem()
     self.plotItem.getAxis('left').setWidth(36)
     self.plotItem.getAxis('bottom').setHeight(24)
 
-    self.layout().addWidget(self.plottingWidget)
-    selectorLayout = QtWidgets.QHBoxLayout()
+    self.getLayout().addWidget(self.plottingWidget, 0,0,1,0)
 
-    selectorLayout.addWidget(Label(self, 'x:'))
-    self.xAxisSelector = PulldownList(self, callback=self.plotPCA)
-    selectorLayout.addWidget(self.xAxisSelector)
-    selectorLayout.addWidget(Label(self, 'y:'))
-    self.yAxisSelector = PulldownList(self, callback=self.plotPCA)
-    selectorLayout.addWidget(self.yAxisSelector)
-    selectorLayout.addStretch()
-
-    self.layout().addLayout(selectorLayout)
-
+    label1 = Label(self, 'x:', grid=(1,0))
+    self.xAxisSelector = PulldownList(self, callback=self.plotPCA,grid=(1,1))
+    label2 = Label(self, 'y:',grid=(2,0))
+    self.yAxisSelector = PulldownList(self, callback=self.plotPCA,grid=(2,1))
 
   def plotPCA(self, *args):
-    # goes to /ui/gui/modules/DecompositionModule.py
-    self.parent.plotResults(self, self.xAxisSelector.currentData()[0],
-                        self.yAxisSelector.currentData()[0])
+    gridColour = getColours()[GUISTRIP_PIVOT]
+    xAxisLabel = self.xAxisSelector.currentData()[0]
+    yAxisLabel = self.yAxisSelector.currentData()[0]
+    self.plotItem.clear()
+    xs = self.pcaModule.decomposition.availablePlotData[xAxisLabel]
+    ys = self.pcaModule.decomposition.availablePlotData[yAxisLabel]
+    if (xAxisLabel.upper().startswith('PC') or
+        yAxisLabel.upper().startswith('PC')):
+      # colourBrushes = [pg.functions.mkBrush(hexToRgb(hexColour))
+      #                  for hexColour in self.getSourceDataColors()]
+      for x, y, in zip(xs, ys,):
+        plot = self.plotItem.plot([x], [y], pen=None, symbol='o',
+                                        )
+        plot.curve.setClickable(True)
+        # plot.object = object
+        # plot.sigClicked.connect(self._mouseClickEvent)
+    else:
+      self.plotItem.plot(xs, ys, symbol='o', clear=True)
 
-  def addXOriginLine(self):
-    self.plotItem.addItem(pg.InfiniteLine(angle=0, pos=0,
-                          pen=pg.functions.mkPen('w', width=1, style=QtCore.Qt.DashLine)))
+    if xAxisLabel.upper().startswith('PC'):
+      self.plotItem.addItem(pg.InfiniteLine(angle=90, pos=0, pen=pg.functions.mkPen(hexToRgb(gridColour), width=1, style=QtCore.Qt.DashLine)))
+    if yAxisLabel.upper().startswith('PC'):
+      self.plotItem.addItem(pg.InfiniteLine(angle=0, pos=0,  pen=pg.functions.mkPen(hexToRgb(gridColour), width=1, style=QtCore.Qt.DashLine)))
 
-  def addYOriginLine(self):
-    self.plotItem.addItem(pg.InfiniteLine(angle=90, pos=0,
-                          pen=pg.functions.mkPen('w', width=1, style=QtCore.Qt.DashLine)))
+    self.plotItem.setLabel('bottom', xAxisLabel)
+    self.plotItem.setLabel('left', yAxisLabel)
 
 
-class PcaOutput(Widget):
-  def __init__(self, parent=None, **kwds):
-    super().__init__(parent, **kwds)
-    self.parent = parent
 
-    self.setLayout(QtWidgets.QHBoxLayout())
 
-    self.sgNameEntryBox = LineEdit(self, text='pca_001')
-    self.descaleCheck = CheckBox(self, checked=True, text='Descale Components')
-    self.saveButton = Button(self, 'save', callback=self.parent.saveOutput)
 
-    self.getLayout().addWidget(Label(self, 'Output spectrum group:'))
-    self.getLayout().addWidget(self.sgNameEntryBox)
-    self.getLayout().addWidget(self.descaleCheck)
-    self.getLayout().addStretch()
-    self.getLayout().addWidget(self.saveButton)
-    self.setMaximumHeight(45)
+if __name__ == '__main__':
+  from PyQt5 import QtGui, QtWidgets
+  from ccpn.ui.gui.widgets.Application import TestApplication
+  from ccpn.ui.gui.widgets.CcpnModuleArea import CcpnModuleArea
 
+
+  app = TestApplication()
+  win = QtWidgets.QMainWindow()
+
+  moduleArea = CcpnModuleArea(mainWindow=None)
+  #
+  module = PcaModule(mainWindow=None, name='My Module')
+  moduleArea.addModule(module)
+
+  win.setCentralWidget(moduleArea)
+  win.resize(1000, 500)
+  win.setWindowTitle('Testing %s' % module.moduleName)
+  win.show()
+
+
+  app.start()
+  win.close()
