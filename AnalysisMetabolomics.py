@@ -96,9 +96,11 @@ class Metabolomics(Assign):
 
 
   def showDecompositionModule(self):
+    """Opens the PCA module. if you need to get the PCA module or the Decomposition base class:
+    get the specific instance from the current ccpnModules. This allows to have multiple PCA modules at the same time"""
     from ccpn.AnalysisMetabolomics.ui.gui.modules.PcaModule import PcaModule
-    self.decompositionModule = PcaModule(mainWindow=self.ui.mainWindow)
-    self.ui.mainWindow.moduleArea.addModule(self.decompositionModule, position='bottom')
+    pcaModule = PcaModule(mainWindow=self.ui.mainWindow)
+    self.ui.mainWindow.moduleArea.addModule(pcaModule, position='bottom')
 
 
 

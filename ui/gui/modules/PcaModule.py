@@ -284,7 +284,6 @@ class Decomposition:
       pass
 
     if components is None:
-      # TODO: Generalize beyond PCA
       components = self.model.loadings_
 
     if descale:
@@ -314,70 +313,64 @@ class PcaModule(CcpnModule):
     CcpnModule.__init__(self,mainWindow=mainWindow, name='PCA',)
 
     self.mainWindow = mainWindow
-    self.decomposition = None
-    if self.mainWindow:
+
+    if self.mainWindow: # without mainWindow will open only the Gui
       self.current = self.mainWindow.current
       self.application = self.mainWindow.application
       self.project = self.mainWindow.project
       self.decomposition = Decomposition(self.project)
       self.decomposition.pcaModule = self
+      self.decomposition.auto = True
 
-    # labelSource =  Label(self.mainWidget, 'Source:', grid=(0,0))
-    self.sourceList = ListWidget(self.mainWidget, acceptDrops=True, grid=(0,1))
+    ####  Main Widgets
+    mi = 0 # main (row) index
+    labelSource =  Label(self.mainWidget, 'Sources:', grid=(mi,0), gridSpan=(mi+1,0))
+    mi += 1
+    self.sourceList = ListWidget(self.mainWidget, acceptDrops=True, grid=(mi,0), gridSpan=(mi,0))
+    mi += 1
     self.sourceList.setSelectDeleteContextMenu()
     self.sourceList.dropped.connect(self._sourceListDroppedCallback)
     self.sourceList.setMaximumHeight(100)
     self.sourceList.itemSelectionChanged.connect(self._setSourcesSelection)
+    self.pcaPlotLeft = PcaPlot(self.mainWidget, pcaModule=self, grid=(mi,0))
+    self.pcaPlotRight = PcaPlot(self.mainWidget, pcaModule=self, grid=(mi,1))
+    mi += 1
+    self.saveButton = Button(self.mainWidget, 'Create PCA SpectrumGroup ', callback=self.saveOutput, grid=(mi, 0),gridSpan=(mi,0))
 
-    self.pcaPlotLeft = PcaPlot(self.mainWidget, pcaModule=self, grid=(1,0))
-    self.pcaPlotRight = PcaPlot(self.mainWidget, pcaModule=self, grid=(1,1))
-    self.saveButton = Button(self.mainWidget, 'Create PCA SpectrumGroup ', callback=self.saveOutput, grid=(2, 1))
-
-
-    #### settings widgets
-    i = 0
-    l = Label(self.settingsWidget, 'Output name:', grid=(i, 0))
-    self.sgNameEntryBox = LineEdit(self.settingsWidget, text='pca_001', grid=(i, 1))
-    i += 1
-    ll = Label(self.settingsWidget, 'Descale Components:', grid=(i, 0))
-    self.descaleCheck = CheckBox(self.settingsWidget, checked=True, grid=(i, 1))
-    i +=1
-    l2 = Label(self.settingsWidget, '1. Normalization:', grid=(i,0))
-    self.normMethodPulldown = PulldownList(self.settingsWidget, callback=self.setNormalization, grid=(i,1))
-    i += 1
-    l3 = Label(self.settingsWidget, '2. Centering:', grid=(i,0))
-    self.centMethodPulldown = PulldownList(self.settingsWidget, callback=self.setCentering, grid=(i,1))
-    i += 1
-    l4 = Label(self.settingsWidget, '3. Scaling:', grid=(i,0))
-    self.scalingMethodPulldown = PulldownList(self.settingsWidget, callback=self.setScaling,  grid=(i,1))
-
-    i += 1
-    l5 = Label(self.settingsWidget, 'Show Exp Graph:', grid=(i, 0))
-    self.toggleLeftGraph = CheckBox(self.settingsWidget, checked=True, callback=self._toggleGraph, grid=(i, 1))
-    self._toggleGraph()
+    #### Settings widgets
+    si = 0 # Settings (row) index
+    l = Label(self.settingsWidget, 'Output name:', grid=(si, 0))
+    self.sgNameEntryBox = LineEdit(self.settingsWidget, text='pca_001', grid=(si, 1))
+    si += 1
+    ll = Label(self.settingsWidget, 'Descale Components:', grid=(si, 0))
+    self.descaleCheck = CheckBox(self.settingsWidget, checked=True, grid=(si, 1))
+    si +=1
+    l2 = Label(self.settingsWidget, '1. Normalization:', grid=(si,0))
+    self.normMethodPulldown = PulldownList(self.settingsWidget, callback=self.setNormalization, grid=(si,1))
     self.normMethodPulldown.setData(['PQN', 'TSA', 'none'])
+    self.setNormalization('PQN')
+    si += 1
+    l3 = Label(self.settingsWidget, '2. Centering:', grid=(si,0))
+    self.centMethodPulldown = PulldownList(self.settingsWidget, callback=self.setCentering, grid=(si,1))
     self.centMethodPulldown.setData(['Mean', 'Median', 'none'])
+    self.setCentering('mean')
+    si += 1
+    l4 = Label(self.settingsWidget, '3. Scaling:', grid=(si,0))
+    self.scalingMethodPulldown = PulldownList(self.settingsWidget, callback=self.setScaling,  grid=(si,1))
     self.scalingMethodPulldown.setData(['Pareto', 'Unit Variance', 'none'])
-
-    # layout.addWidget(self.pcaOutput, 3, 0, 1, 2)
-
-    self.__normalization = None
-    self.__scaling = None
-    self.__centering = None
-
-    if self.decomposition:
-      self.setNormalization('PQN')
-      self.setCentering('mean')
-      self.setScaling('Pareto')
-      self.decomposition.auto = True
-
+    self.setScaling('Pareto')
+    si += 1
+    l5 = Label(self.settingsWidget, 'Show Exp Graph:', grid=(si, 0))
+    self.toggleLeftGraph = CheckBox(self.settingsWidget, checked=True, callback=self._toggleGraph, grid=(si, 1))
+    self._toggleGraph()
 
   def clearPlots(self):
     self.pcaPlotRight.clearPlot()
     self.pcaPlotLeft.clearPlot()
 
   def _sourceListDroppedCallback(self, *args):
-    print('Dropped: ',self.sourceList.getTexts()[-1])
+    pass
+    #Do that when you drop an item it is also selected
 
   def _clearSelection(self, listWidget):
     for i in range(listWidget.count()):
@@ -396,45 +389,36 @@ class PcaModule(CcpnModule):
       sdo = [s.name for s in sourceData]
       self.sourceList.addItems(sdo)
 
-
-  def getNormalization(self):
-    return self.__normalization
-
   def setNormalization(self, normalization):
-    self.__normalization = normalization
     self.normMethodPulldown.select(normalization)
     self.decomposition.normalization = normalization
 
-  def getCentering(self):
-    return self.__centering
-
   def setCentering(self, centering):
-    self.__centering = centering
     self.centMethodPulldown.select(centering)
     self.decomposition.centering = centering
 
-  def getScaling(self):
-    return self.__scaling
-
   def setScaling(self, scaling):
-    self.__scaling = scaling
     self.scalingMethodPulldown.select(scaling)
     self.decomposition.scaling = scaling
 
   def _setSourcesSelection(self):
     """ this starts the pca machinery"""
-    if len( self.sourceList.getSelectedTexts()) == 0:
+    if len( self.sourceList.getSelectedTexts()) == 0: # if nothing selected, then do nothing
       self.clearPlots()
       return
     self.decomposition.sources = self.sourceList.getSelectedTexts()
 
+  def refreshPlots(self):
+    self._setSourcesSelection()
+
   def setAvailablePlotData(self, availablePlotData=None,
                            xDefaultLeft=None, yDefaultLeft=None,
                            xDefaultRight=None, yDefaultRight=None):
-    # called from decomposition
+    # called from decomposition when all data are ready
 
     if availablePlotData is None:
       availablePlotData = list(self.decomposition.availablePlotData.keys())
+      print('availablePlotData',availablePlotData)
 
     self.pcaPlotLeft.xAxisSelector.setData(availablePlotData)
     self.pcaPlotLeft.yAxisSelector.setData(availablePlotData)
@@ -459,7 +443,7 @@ class PcaModule(CcpnModule):
 
 
   def _mouseClickEvent(self, i):
-    " Open a spectrum for the pca point"
+    " Open the object for the pca point"
 
     obj = i.object
     if obj is not None:
@@ -503,8 +487,7 @@ class PcaPlot(Widget):
     self.plotItem.clear()
     xs = self.pcaModule.decomposition.availablePlotData[xAxisLabel]
     ys = self.pcaModule.decomposition.availablePlotData[yAxisLabel]
-    if (xAxisLabel.upper().startswith('PC') or
-        yAxisLabel.upper().startswith('PC')):
+    if (xAxisLabel.upper().startswith('PC') or yAxisLabel.upper().startswith('PC')): #Remove this
       # colourBrushes = [pg.functions.mkBrush(hexToRgb(hexColour))
       #                  for hexColour in self.getSourceDataColors()]
       for x, y, in zip(xs, ys,):
