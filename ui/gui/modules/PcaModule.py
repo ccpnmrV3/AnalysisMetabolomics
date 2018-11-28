@@ -170,10 +170,11 @@ class Decomposition:
     data = self.buildSourceData(self.__sources)
     if data is not None:
       if data.shape[0] > 1: # we have enough entries
-        data = data.replace(np.nan, 0)
-        self.normalize()
-        self.center()
-        self.scale()
+        data_ = data.replace(np.nan, 0)
+        normalisedData = self.normalize(data_)
+        centeredData = self.center(normalisedData)
+        scaledData = self.scale(centeredData)
+        data = scaledData.replace(np.nan, 0)
         self.model = PCA(data)
         success = True
     return success
@@ -228,37 +229,38 @@ class Decomposition:
       self.__data =  data
     return self.__data
 
-  def normalize(self):
+  def normalize(self, data):
     if self.normalization.upper() == PQN:
-      self.__data = normalisation.pqn(self.__data)
+      data = normalisation.pqn(data)
     elif self.normalization.upper() == TSA:
-      self.__data = normalisation.tsa(self.__data)
+      data = normalisation.tsa(data)
     elif self.normalization.lower() == none:
       pass
     else:
       raise NotImplementedError("Only PQN, TSA and 'none' type normalizations currently supported.")
+    return data
 
-
-  def center(self):
+  def center(self, data):
     if self.centering.lower() == mean:
-      self.__data = centering.meanCenter(self.__data)
+      data = centering.meanCenter(data)
     elif self.centering.lower() == median:
-      self.__data = centering.medianCenter(self.__data)
+      data = centering.medianCenter(data)
     elif self.centering.lower() == none:
       pass
     else:
       raise NotImplementedError("Only mean, median and 'none' type centerings currently supported.")
+    return data
 
-  def scale(self):
+  def scale(self, data):
     if self.scaling.lower() == pareto:
-      self.__data, self.__deScaleFunc = scaling.paretoScale(self.__data)
+      data, self.__deScaleFunc = scaling.paretoScale(data)
     elif self.scaling.lower() == variance:
-      self.__data, self.__deScaleFunc = scaling.unitVarianceScale(self.__data)
+      data, self.__deScaleFunc = scaling.unitVarianceScale(data)
     elif self.scaling.lower() == none:
       pass
     else:
       raise NotImplementedError("Only pareto, unit variance and 'none' type scalings currently supported.")
-
+    return data
 
   def saveLoadingsToSpectra(self, prefix='test_pca', descale=True, components=None):
     saveLocation = os.path.join(self.project.path, METABOLOMICS_SAVE_LOCATION, 'pca', prefix)
@@ -353,7 +355,7 @@ class PcaModule(CcpnModule):
     #### Settings widgets
     si = 0 # Settings (row) index
     l = Label(self.settingsWidget, 'Output name:', grid=(si, 0))
-    self.sgNameEntryBox = LineEdit(self.settingsWidget, text='pca_001', grid=(si, 1))
+    self.sgNameEntryBox = LineEdit(self.settingsWidget, text='pca', grid=(si, 1))
     si += 1
     l = Label(self.settingsWidget, 'x:', grid=(si, 0))
     self.xAxisSelector = PulldownList(self.settingsWidget, callback=self._axisChanged, grid=(si, 1))
@@ -369,7 +371,7 @@ class PcaModule(CcpnModule):
     self.normMethodPulldown.setData([PQN, TSA, none])
     si += 1
     l = Label(self.settingsWidget, 'Centering:', grid=(si,0))
-    self.centMethodPulldown = PulldownList(self.settingsWidget, callback=self.setCentering, grid=(si,1))
+    self.centMethodPulldown = PulldownList(self.settingsWidget, callback=self._setCentering, grid=(si,1))
     self.centMethodPulldown.setData([mean, median, none])
     si += 1
     l = Label(self.settingsWidget, 'Scaling:', grid=(si,0))
@@ -377,11 +379,6 @@ class PcaModule(CcpnModule):
     self.scalingMethodPulldown.setData([pareto, variance, none])
     si += 1
 
-    #
-    # if self.decomposition:
-    #   self.setNormalization('PQN')
-    #   self.setCentering('mean')
-    #   self.setScaling('Pareto')
 
   def getPcaResults(self):
     """ gets the results from the base class decomposition """
@@ -482,20 +479,23 @@ class PcaModule(CcpnModule):
     if self.decomposition:
       self.normMethodPulldown.select(normalization)
       self.decomposition.normalization = normalization
-      self.refreshPlot()
+      if self.getPcaResults() is not None:
+        self.refreshPlot()
 
-  def setCentering(self, centering):
+  def _setCentering(self, centering):
     if self.decomposition:
       self.centMethodPulldown.select(centering)
       self.decomposition.centering = centering
-      self.refreshPlot()
+      if self.getPcaResults() is not None:
+        self.refreshPlot()
 
   def setScaling(self, scaling):
     if self.decomposition:
 
       self.scalingMethodPulldown.select(scaling)
       self.decomposition.scaling = scaling
-      self.refreshPlot()
+      if self.getPcaResults() is not None:
+        self.refreshPlot()
 
   def _setAxes(self, scores):
     """ Set X and Y axes from the PCA scores dataFrame.
@@ -516,6 +516,7 @@ class PcaModule(CcpnModule):
     self.decomposition.sources = []
     self.xAxisSelector.setData([])
     self.yAxisSelector.setData([])
+
 
   def _setSourcesSelection(self):
     """ this starts the pca machinery"""
