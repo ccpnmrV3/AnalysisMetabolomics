@@ -455,9 +455,11 @@ class PcaModule(CcpnModule):
         _openItemObject(self.mainWindow, [obj])
 
 
-  def _sourceListDroppedCallback(self, *args):
-    pass
-    #Do that when you drop an item it is also selected
+  def _sourceListDroppedCallback(self, ll):
+    if len(ll)>0:
+      data = ll[0]
+      pids = data.get('pids')
+      self.sourceList.selectItems(pids)
 
   def _clearSelection(self, listWidget):
     for i in range(listWidget.count()):
@@ -515,20 +517,17 @@ class PcaModule(CcpnModule):
     self.xAxisSelector.setData([])
     self.yAxisSelector.setData([])
 
-
-
   def _setSourcesSelection(self):
     """ this starts the pca machinery"""
     if len( self.sourceList.getSelectedTexts()) == 0: # if nothing selected, then do nothing
       self._clearPlot()
       return
 
-    elif len(self.sourceList.getSelectedTexts()) == 1:
+    elif len(self.sourceList.getSelectedTexts()) == 1: # only SG is allowed a single selection
       obj = self.project.getByPid(self.sourceList.getSelectedTexts()[0])
       if not isinstance(obj, SpectrumGroup):
         self._clearPlot()
         return
-
 
     self.decomposition.sources = self.sourceList.getSelectedTexts()
     self._setAxes(scores = self.getPcaResults())
