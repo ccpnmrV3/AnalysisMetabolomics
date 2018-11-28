@@ -55,6 +55,20 @@ from ccpn.core.lib.Cache import cached
 from ccpn.core.lib.SpectrumLib import get1DdataInRange
 
 METABOLOMICS_SAVE_LOCATION = os.path.join('internal','metabolomics')
+DefaultPC1 = 'PC1'
+DefaultPC2 = 'PC2'
+PC = 'PC'
+none = 'none'
+# Normalisation types
+PQN = 'PQN'
+TSA = 'TSA'
+#  Centering
+mean = 'mean'
+median = 'median'
+#
+pareto = 'pareto'
+variance = 'unit variance'
+
 
 class Decomposition:
   """
@@ -65,9 +79,9 @@ class Decomposition:
     self.project = project
     self.__pcaModule = None #(the old "presenter"!)
     self.__sources = [] # list of pids
-    self.__normalization = None
-    self.__centering = None
-    self.__scaling = None
+    self.__normalization = PQN
+    self.__centering = mean
+    self.__scaling = pareto
     self.__decomp = None # 'Only PCA at the moment'
     self.__data = None
     self.__sourcesChanged = True
@@ -148,13 +162,11 @@ class Decomposition:
       scores = self.model.scores_
       return scores
 
-
-
   def decompose(self):
     """
     get the data, init the pca model and then plot the results
     """
-
+    print('Decomposing')
     data = self.buildSourceData(self.__sources)
     if data is not None:
       if data.shape[0] > 1: # we have enough entries
@@ -163,24 +175,7 @@ class Decomposition:
         self.center()
         self.scale()
         self.model = PCA(data)
-        self._setAvailablePlotData()
-      else:
-        self.pcaModule.clearPlots()
 
-  def _setAvailablePlotData(self):
-    defaults = OrderedDict()
-    self.availablePlotData = OrderedDict()
-    self.availablePlotData['Component #'] = list(range(len(self.model.scores_)))
-    self.availablePlotData['Explained Vairance'] = self.model.explainedVariance_
-    for score in self.model.scores_:
-      self.availablePlotData[score] = self.model.scores_[score].values
-    defaults['xDefaultLeft'] = 'Component'
-    defaults['yDefaultLeft'] = 'Explained Vairance'
-    defaults['xDefaultRight'] = 'PC1'
-    defaults['yDefaultRight'] = 'PC2'
-
-    self.pcaModule.setAvailablePlotData(list(self.availablePlotData.keys()),
-                                        **defaults)
 
   def buildSourceFromSpectra(self, spectra, xRange=[-1,9]):
     """
@@ -233,37 +228,35 @@ class Decomposition:
     return self.__data
 
   def normalize(self):
-    if self.normalization.upper() == 'PQN':
+    if self.normalization.upper() == PQN:
       self.__data = normalisation.pqn(self.__data)
-    elif self.normalization.upper() == 'TSA':
+    elif self.normalization.upper() == TSA:
       self.__data = normalisation.tsa(self.__data)
-    elif self.normalization.lower() == 'none':
+    elif self.normalization.lower() == none:
       pass
     else:
       raise NotImplementedError("Only PQN, TSA and 'none' type normalizations currently supported.")
 
 
   def center(self):
-    if self.centering.lower() == 'mean':
+    if self.centering.lower() == mean:
       self.__data = centering.meanCenter(self.__data)
-    elif self.centering.lower() == 'median':
+    elif self.centering.lower() == median:
       self.__data = centering.medianCenter(self.__data)
-    elif self.centering.lower() == 'none':
+    elif self.centering.lower() == none:
       pass
     else:
       raise NotImplementedError("Only mean, median and 'none' type centerings currently supported.")
 
   def scale(self):
-    if self.scaling.lower() == 'pareto':
+    if self.scaling.lower() == pareto:
       self.__data, self.__deScaleFunc = scaling.paretoScale(self.__data)
-    elif self.scaling.lower() == 'unit variance':
+    elif self.scaling.lower() == variance:
       self.__data, self.__deScaleFunc = scaling.unitVarianceScale(self.__data)
-    elif self.scaling.lower() == 'none':
+    elif self.scaling.lower() == none:
       pass
     else:
       raise NotImplementedError("Only pareto, unit variance and 'none' type scalings currently supported.")
-
-
 
 
   def saveLoadingsToSpectra(self, prefix='test_pca', descale=True, components=None):
@@ -313,6 +306,7 @@ class PcaModule(CcpnModule):
     CcpnModule.__init__(self,mainWindow=mainWindow, name='PCA',)
 
     self.mainWindow = mainWindow
+    self.decomposition = None
 
     if self.mainWindow: # without mainWindow will open only the Gui
       self.current = self.mainWindow.current
@@ -332,8 +326,26 @@ class PcaModule(CcpnModule):
     self.sourceList.dropped.connect(self._sourceListDroppedCallback)
     self.sourceList.setMaximumHeight(100)
     self.sourceList.itemSelectionChanged.connect(self._setSourcesSelection)
-    self.pcaPlotLeft = PcaPlot(self.mainWidget, pcaModule=self, grid=(mi,0))
-    self.pcaPlotRight = PcaPlot(self.mainWidget, pcaModule=self, grid=(mi,1))
+
+
+    # self.pcaPlotRight = PcaScatterWidget(self.mainWidget, pcaModule=self, grid=(mi,1), gridSpan=(mi,0))
+
+    bc = getColours()[CCPNGLWIDGET_HEXBACKGROUND]
+    gridColour = getColours()[GUISTRIP_PIVOT]
+
+    self._view = pg.GraphicsLayoutWidget()
+    self._plotItem = self._view.addPlot()
+    self.scatterPlot = pg.ScatterPlotItem(size=10, pen=pg.mkPen(None), brush=pg.mkBrush(255, 255, 255, 120), bc =bc)
+    self.scatterPlot.sigClicked.connect(self._plotClicked)
+
+    self._plotItem.addItem(self.scatterPlot)
+
+    self.xLine = pg.InfiniteLine(angle=90, pos=0, pen=pg.functions.mkPen(hexToRgb(gridColour), width=1, style=QtCore.Qt.DashLine))
+    self._plotItem.addItem(self.xLine)
+    self.yLine = pg.InfiniteLine(angle=0, pos=0,pen=pg.functions.mkPen(hexToRgb(gridColour), width=1, style=QtCore.Qt.DashLine))
+    self._plotItem.addItem(self.yLine)
+    self.mainWidget.getLayout().addWidget(self._view, mi,0)
+
     mi += 1
     self.saveButton = Button(self.mainWidget, 'Create PCA SpectrumGroup ', callback=self.saveOutput, grid=(mi, 0),gridSpan=(mi,0))
 
@@ -342,31 +354,104 @@ class PcaModule(CcpnModule):
     l = Label(self.settingsWidget, 'Output name:', grid=(si, 0))
     self.sgNameEntryBox = LineEdit(self.settingsWidget, text='pca_001', grid=(si, 1))
     si += 1
-    ll = Label(self.settingsWidget, 'Descale Components:', grid=(si, 0))
+    l = Label(self.settingsWidget, 'x:', grid=(si, 0))
+    self.xAxisSelector = PulldownList(self.settingsWidget, callback=self._axisChanged, grid=(si, 1))
+    si += 1
+    l = Label(self.settingsWidget, 'y:', grid=(si, 0))
+    self.yAxisSelector = PulldownList(self.settingsWidget, callback=self._axisChanged, grid=(si, 1))
+    si += 1
+    l = Label(self.settingsWidget, 'Descale Components:', grid=(si, 0))
     self.descaleCheck = CheckBox(self.settingsWidget, checked=True, grid=(si, 1))
     si +=1
-    l2 = Label(self.settingsWidget, '1. Normalization:', grid=(si,0))
+    l = Label(self.settingsWidget, 'Normalization:', grid=(si,0))
     self.normMethodPulldown = PulldownList(self.settingsWidget, callback=self.setNormalization, grid=(si,1))
-    self.normMethodPulldown.setData(['PQN', 'TSA', 'none'])
-    self.setNormalization('PQN')
+    self.normMethodPulldown.setData([PQN, TSA, none])
     si += 1
-    l3 = Label(self.settingsWidget, '2. Centering:', grid=(si,0))
+    l = Label(self.settingsWidget, 'Centering:', grid=(si,0))
     self.centMethodPulldown = PulldownList(self.settingsWidget, callback=self.setCentering, grid=(si,1))
-    self.centMethodPulldown.setData(['Mean', 'Median', 'none'])
-    self.setCentering('mean')
+    self.centMethodPulldown.setData([mean, median, none])
     si += 1
-    l4 = Label(self.settingsWidget, '3. Scaling:', grid=(si,0))
+    l = Label(self.settingsWidget, 'Scaling:', grid=(si,0))
     self.scalingMethodPulldown = PulldownList(self.settingsWidget, callback=self.setScaling,  grid=(si,1))
-    self.scalingMethodPulldown.setData(['Pareto', 'Unit Variance', 'none'])
-    self.setScaling('Pareto')
+    self.scalingMethodPulldown.setData([pareto, variance, none])
     si += 1
-    l5 = Label(self.settingsWidget, 'Show Exp Graph:', grid=(si, 0))
-    self.toggleLeftGraph = CheckBox(self.settingsWidget, checked=True, callback=self._toggleGraph, grid=(si, 1))
-    self._toggleGraph()
 
-  def clearPlots(self):
-    self.pcaPlotRight.clearPlot()
-    self.pcaPlotLeft.clearPlot()
+    #
+    # if self.decomposition:
+    #   self.setNormalization('PQN')
+    #   self.setCentering('mean')
+    #   self.setScaling('Pareto')
+
+  def getPcaResults(self):
+    """ gets the results from the base class decomposition """
+
+    if self.decomposition is not None:
+      scoresDF = self.decomposition.scores
+      if scoresDF is not None:
+        return scoresDF
+
+
+  def plotPCAresults(self, dataFrame, xAxisLabel='PC1', yAxisLabel='PC2'):
+    """
+
+    :param dataFrame: in the format from the PCA Class
+          index: Pid --> obj or str of pid
+          Column: #  --> serial
+          Column: variance --> explained variance
+          Columns: PCx  x= 1 to the end. Eg. PC1, PC2, etc
+    :return:  transform the dataFrame in the plottable data format and plot it on the scatterPlot
+
+    """
+    if dataFrame is None:
+      self.scatterPlot.clear()
+      return
+    spots = []
+    for obj, row in dataFrame.iterrows():
+      dd = {'pos': [0, 0], 'data': 'pid', 'brush': pg.mkBrush(255, 255, 255, 120), 'symbol': 'o', 'size': 10, }
+
+      dd['pos'] = [row[xAxisLabel], row[yAxisLabel]]
+      dd['data'] = obj
+      if hasattr(obj, 'sliceColour'):
+        dd['brush'] = pg.functions.mkBrush(hexToRgb(obj.sliceColour))
+      spots.append(dd)
+    self._plotSpots(spots)
+    self._plotItem.setLabel('bottom', xAxisLabel)
+    self._plotItem.setLabel('left', yAxisLabel)
+
+
+
+
+  def _plotSpots(self, spots):
+    """
+    plots the data in the format requested by the ScatterPlot widget
+    :param spots: a list of dict with these Key:value
+                [{
+                'pos': [0, 0], # [x,y] which will be the single spot position
+                'data': 'pid', any python object. pid for PCA
+                'brush': pg.mkBrush(255, 255, 255, 120), the colour of the spot
+                'symbol': 'o', will give the shape of the spot
+                'size': 10,
+                'pen' = pg.mkPen(None)
+                 }, ...]
+    :return:
+    """
+    self.scatterPlot.clear()
+    self.scatterPlot.addPoints(spots)
+
+  def _plotClicked(self, plot, points):
+    """
+    :param plot:
+    :param points: all points under the mouse click.
+    :return:
+    """
+    if len(points)>1:
+      return
+    for point in points: # not sure if we want open the same. Maybe up to a limit of n?
+      # point.setPen('b', width=1)
+      obj = point.data()
+      if obj is not None:
+        _openItemObject(self.mainWindow, [obj])
+
 
   def _sourceListDroppedCallback(self, *args):
     pass
@@ -401,111 +486,42 @@ class PcaModule(CcpnModule):
     self.scalingMethodPulldown.select(scaling)
     self.decomposition.scaling = scaling
 
+  def initPlots(self, scores):
+    if scores is not None:
+      labels = scores.keys()
+      self.xAxisSelector.setData(list(labels))
+      self.yAxisSelector.setData(list(labels))
+      self.xAxisSelector.select(DefaultPC1)
+      self.yAxisSelector.select(DefaultPC2)
+    else:
+      self.scatterPlot.clear()
+
+
   def _setSourcesSelection(self):
     """ this starts the pca machinery"""
     if len( self.sourceList.getSelectedTexts()) == 0: # if nothing selected, then do nothing
-      self.clearPlots()
+      self.scatterPlot.clear()
       return
-    self.decomposition.sources = self.sourceList.getSelectedTexts()
 
-  def refreshPlots(self):
+    self.decomposition.sources = self.sourceList.getSelectedTexts()
+    self.initPlots(scores = self.getPcaResults())
+    # self.pcaPlotRight.plotPCA()
+
+  def _axisChanged(self, axisLabel):
+    """callback from axis pulldowns """
+    x = self.xAxisSelector.getText()
+    y = self.yAxisSelector.getText()
+    self.plotPCAresults(self.decomposition.scores, xAxisLabel=x, yAxisLabel=y)
+
+  def refreshPlot(self, ):
     self._setSourcesSelection()
 
-  def setAvailablePlotData(self, availablePlotData=None,
-                           xDefaultLeft=None, yDefaultLeft=None,
-                           xDefaultRight=None, yDefaultRight=None):
-    # called from decomposition when all data are ready
-
-    if availablePlotData is None:
-      availablePlotData = list(self.decomposition.availablePlotData.keys())
-      print('availablePlotData',availablePlotData)
-
-    self.pcaPlotLeft.xAxisSelector.setData(availablePlotData)
-    self.pcaPlotLeft.yAxisSelector.setData(availablePlotData)
-    self.pcaPlotRight.xAxisSelector.setData(availablePlotData)
-    self.pcaPlotRight.yAxisSelector.setData(availablePlotData)
-
-    self.pcaPlotLeft.xAxisSelector.select(xDefaultLeft)
-    self.pcaPlotLeft.yAxisSelector.select(yDefaultLeft)
-    self.pcaPlotRight.xAxisSelector.select(xDefaultRight)
-    self.pcaPlotRight.yAxisSelector.select(yDefaultRight)
-
-  def getSourceDataColors(self):
-    """
-    """
-    return [self.project.getByPid(source).sliceColour
-            for source in self.decomposition.sources]
-
-  def getSpectra(self):
-    """
-    """
-    return [self.project.getByPid(sp) for sp in self.decomposition.sources]
-
-
-  def _mouseClickEvent(self, i):
-    " Open the object for the pca point"
-
-    obj = i.object
-    if obj is not None:
-      _openItemObject(self.mainWindow, [obj])
 
   def saveOutput(self):
     saveName = self.pcaOutput.sgNameEntryBox.text()
     descale = self.pcaOutput.descaleCheck.isChecked()
     self.decomposition.saveLoadingsToSpectra(prefix=saveName, descale=descale)
 
-
-
-
-
-class PcaPlot(Widget):
-  def __init__(self, parent, pcaModule, **kwargs):
-    super().__init__(parent, setLayout=True, **kwargs)
-    self.parent = parent
-    self.pcaModule = pcaModule
-    bc = getColours()[CCPNGLWIDGET_HEXBACKGROUND]
-    self.plottingWidget = pg.PlotWidget(self, background=bc)
-    self.plotItem = self.plottingWidget.getPlotItem()
-    self.plotItem.getAxis('left').setWidth(36)
-    self.plotItem.getAxis('bottom').setHeight(24)
-
-    self.getLayout().addWidget(self.plottingWidget, 0,0,1,0)
-
-    label1 = Label(self, 'x:', grid=(1,0))
-    self.xAxisSelector = PulldownList(self, callback=self.plotPCA,grid=(1,1))
-    label2 = Label(self, 'y:',grid=(2,0))
-    self.yAxisSelector = PulldownList(self, callback=self.plotPCA,grid=(2,1))
-
-
-  def clearPlot(self):
-    self.plotItem.clearPlots()
-
-  def plotPCA(self, *args):
-    gridColour = getColours()[GUISTRIP_PIVOT]
-    xAxisLabel = self.xAxisSelector.currentData()[0]
-    yAxisLabel = self.yAxisSelector.currentData()[0]
-    self.plotItem.clear()
-    xs = self.pcaModule.decomposition.availablePlotData[xAxisLabel]
-    ys = self.pcaModule.decomposition.availablePlotData[yAxisLabel]
-    if (xAxisLabel.upper().startswith('PC') or yAxisLabel.upper().startswith('PC')): #Remove this
-      # colourBrushes = [pg.functions.mkBrush(hexToRgb(hexColour))
-      #                  for hexColour in self.getSourceDataColors()]
-      for x, y, in zip(xs, ys,):
-        plot = self.plotItem.plot([x], [y], pen=None, symbol='o',
-                                        )
-        plot.curve.setClickable(True)
-        # plot.object = object
-        # plot.sigClicked.connect(self._mouseClickEvent)
-    else:
-      self.plotItem.plot(xs, ys, symbol='o', clear=True)
-
-    if xAxisLabel.upper().startswith('PC'):
-      self.plotItem.addItem(pg.InfiniteLine(angle=90, pos=0, pen=pg.functions.mkPen(hexToRgb(gridColour), width=1, style=QtCore.Qt.DashLine)))
-    if yAxisLabel.upper().startswith('PC'):
-      self.plotItem.addItem(pg.InfiniteLine(angle=0, pos=0,  pen=pg.functions.mkPen(hexToRgb(gridColour), width=1, style=QtCore.Qt.DashLine)))
-
-    self.plotItem.setLabel('bottom', xAxisLabel)
-    self.plotItem.setLabel('left', yAxisLabel)
 
 
 
@@ -517,13 +533,35 @@ if __name__ == '__main__':
   from ccpn.ui.gui.widgets.CcpnModuleArea import CcpnModuleArea
 
 
+  def plotClicked(plot, points):
+    # print(plot, points)
+    for point in points:
+      print(point.data())
+
+
+  data = np.empty(5, dtype=[('x_pos', float), ('y_pos', float)])
+  x = data['x_pos'] = np.random.normal(size=5)
+  y = data['y_pos'] = np.random.normal(size=5) + data['x_pos'] * 0.1
+  objs = ['A','B','C','D','E']
+
   app = TestApplication()
   win = QtWidgets.QMainWindow()
 
   moduleArea = CcpnModuleArea(mainWindow=None)
-  #
   module = PcaModule(mainWindow=None, name='My Module')
   moduleArea.addModule(module)
+
+  n = 30
+  pos = np.random.normal(size=(2, n), scale=1e-5)
+  spots = [{'pos': pos[:, i], 'data': 1} for i in range(n)] + [{'pos': [0, 0], 'data': 1}]
+
+
+  n = 5
+  pos = np.random.normal(size=(2, n), scale=1e-5)
+  spots = [{'pos': pos[:, i], 'data': 1} for i in range(n)] + [{'pos': [0, 0], 'data': 1}]
+  # module.plotData(spots)
+
+  # scatterPlot.sigPointsClicked.connect(plotClicked)
 
   win.setCentralWidget(moduleArea)
   win.resize(1000, 500)
