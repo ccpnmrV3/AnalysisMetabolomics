@@ -91,7 +91,7 @@ class Decomposition:
     self.__deScaleFunc = lambda x: x
     self.availablePlotData = OrderedDict()
     self.model = None # PCA base class
-    self.auto = False
+    self.auto = True
 
 
   @property
@@ -166,7 +166,7 @@ class Decomposition:
     """
     get the data, init the pca model and then plot the results
     """
-    print('Decomposing')
+    success = False
     data = self.buildSourceData(self.__sources)
     if data is not None:
       if data.shape[0] > 1: # we have enough entries
@@ -175,6 +175,8 @@ class Decomposition:
         self.center()
         self.scale()
         self.model = PCA(data)
+        success = True
+    return success
 
 
   def buildSourceFromSpectra(self, spectra, xRange=[-1,9]):
@@ -196,7 +198,6 @@ class Decomposition:
     l = [pd.Series(spectraDict[name][1], name=name) for name in sorted(spectraDict.keys())]
     data = pd.concat(l, axis=1).T
     return data
-
 
 
 
@@ -364,7 +365,7 @@ class PcaModule(CcpnModule):
     self.descaleCheck = CheckBox(self.settingsWidget, checked=True, grid=(si, 1))
     si +=1
     l = Label(self.settingsWidget, 'Normalization:', grid=(si,0))
-    self.normMethodPulldown = PulldownList(self.settingsWidget, callback=self.setNormalization, grid=(si,1))
+    self.normMethodPulldown = PulldownList(self.settingsWidget, callback=self._setNormalization, grid=(si,1))
     self.normMethodPulldown.setData([PQN, TSA, none])
     si += 1
     l = Label(self.settingsWidget, 'Centering:', grid=(si,0))
@@ -388,7 +389,8 @@ class PcaModule(CcpnModule):
     if self.decomposition is not None:
       scoresDF = self.decomposition.scores
       if scoresDF is not None:
-        return scoresDF
+        if scoresDF.shape[0] > 1: #No point in plotting
+          return scoresDF
 
 
   def plotPCAresults(self, dataFrame, xAxisLabel='PC1', yAxisLabel='PC2'):
@@ -474,19 +476,28 @@ class PcaModule(CcpnModule):
       sdo = [s.name for s in sourceData]
       self.sourceList.addItems(sdo)
 
-  def setNormalization(self, normalization):
-    self.normMethodPulldown.select(normalization)
-    self.decomposition.normalization = normalization
+  def _setNormalization(self, normalization):
+    if self.decomposition:
+      self.normMethodPulldown.select(normalization)
+      self.decomposition.normalization = normalization
+      self.refreshPlot()
 
   def setCentering(self, centering):
-    self.centMethodPulldown.select(centering)
-    self.decomposition.centering = centering
+    if self.decomposition:
+      self.centMethodPulldown.select(centering)
+      self.decomposition.centering = centering
+      self.refreshPlot()
 
   def setScaling(self, scaling):
-    self.scalingMethodPulldown.select(scaling)
-    self.decomposition.scaling = scaling
+    if self.decomposition:
 
-  def initPlots(self, scores):
+      self.scalingMethodPulldown.select(scaling)
+      self.decomposition.scaling = scaling
+      self.refreshPlot()
+
+  def _setAxes(self, scores):
+    """ Set X and Y axes from the PCA scores dataFrame.
+     This because we don't know at priory how many PC we will have. Defaults PC1 and PC2"""
     if scores is not None:
       labels = scores.keys()
       self.xAxisSelector.setData(list(labels))
@@ -496,18 +507,34 @@ class PcaModule(CcpnModule):
     else:
       self.scatterPlot.clear()
 
+  def _clearPlot(self):
+
+    self.scatterPlot.clear()
+    self.scatterPlot.viewTransformChanged()
+    self.decomposition.sources = []
+    self.xAxisSelector.setData([])
+    self.yAxisSelector.setData([])
+
+
 
   def _setSourcesSelection(self):
     """ this starts the pca machinery"""
     if len( self.sourceList.getSelectedTexts()) == 0: # if nothing selected, then do nothing
-      self.scatterPlot.clear()
+      self._clearPlot()
       return
 
-    self.decomposition.sources = self.sourceList.getSelectedTexts()
-    self.initPlots(scores = self.getPcaResults())
-    # self.pcaPlotRight.plotPCA()
+    elif len(self.sourceList.getSelectedTexts()) == 1:
+      obj = self.project.getByPid(self.sourceList.getSelectedTexts()[0])
+      if not isinstance(obj, SpectrumGroup):
+        self._clearPlot()
+        return
 
-  def _axisChanged(self, axisLabel):
+
+    self.decomposition.sources = self.sourceList.getSelectedTexts()
+    self._setAxes(scores = self.getPcaResults())
+    self._axisChanged()
+
+  def _axisChanged(self, *args):
     """callback from axis pulldowns """
     x = self.xAxisSelector.getText()
     y = self.yAxisSelector.getText()
@@ -533,10 +560,6 @@ if __name__ == '__main__':
   from ccpn.ui.gui.widgets.CcpnModuleArea import CcpnModuleArea
 
 
-  def plotClicked(plot, points):
-    # print(plot, points)
-    for point in points:
-      print(point.data())
 
 
   data = np.empty(5, dtype=[('x_pos', float), ('y_pos', float)])
@@ -551,17 +574,12 @@ if __name__ == '__main__':
   module = PcaModule(mainWindow=None, name='My Module')
   moduleArea.addModule(module)
 
-  n = 30
-  pos = np.random.normal(size=(2, n), scale=1e-5)
-  spots = [{'pos': pos[:, i], 'data': 1} for i in range(n)] + [{'pos': [0, 0], 'data': 1}]
-
 
   n = 5
   pos = np.random.normal(size=(2, n), scale=1e-5)
   spots = [{'pos': pos[:, i], 'data': 1} for i in range(n)] + [{'pos': [0, 0], 'data': 1}]
-  # module.plotData(spots)
+  module._plotSpots(spots)
 
-  # scatterPlot.sigPointsClicked.connect(plotClicked)
 
   win.setCentralWidget(moduleArea)
   win.resize(1000, 500)
