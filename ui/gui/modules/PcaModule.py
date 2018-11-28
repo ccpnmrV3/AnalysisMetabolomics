@@ -77,38 +77,19 @@ class Decomposition:
 
   def __init__(self, project):
     self.project = project
-    self.__pcaModule = None #(the old "presenter"!)
     self.__sources = [] # list of pids
-    self.__normalization = PQN
-    self.__centering = mean
-    self.__scaling = pareto
-    self.__decomp = None # 'Only PCA at the moment'
-    self.__data = None
+    self.__normalization = PQN # str
+    self.__centering = mean # str
+    self.__scaling = pareto # str
+    self.__data = None  #will be a dataframe containg the 1D array of spectral intensities and the relative pid
     self.__sourcesChanged = True
     self.__normChanged = True
     self.__centChanged = True
     self.__scalingChanged = True
     self.__deScaleFunc = lambda x: x
-    self.availablePlotData = OrderedDict()
     self.model = None # PCA base class
-    self.auto = True
+    self.auto = True # if auto will init the decomposition
 
-
-  @property
-  def pcaModule(self):
-    return self.__pcaModule
-
-  @pcaModule.setter
-  def pcaModule(self, value):
-    self.__pcaModule = value
-
-
-  def getSpectra(self):
-    # Modify to have spectra by drag and drop and not all from project
-    sd = []
-    sd += [s for s in self.project.spectra if
-              (len(s.axisCodes) == 1) and (s.axisCodes[0].startswith('H'))]
-    return sd
 
   def _getRawData(self):
     """ Returns a dataframe containg the 1D array of spectral intensities and the relative pid """
@@ -122,7 +103,7 @@ class Decomposition:
   def normalization(self, value):
     self.__normalization = value
     if self.auto:
-      self.decompose()
+      self.decompose(self.__data)
 
   @property
   def centering(self):
@@ -132,7 +113,7 @@ class Decomposition:
   def centering(self, value):
     self.__centering = value
     if self.auto:
-      self.decompose()
+      self.decompose(self.__data)
 
   @property
   def scaling(self):
@@ -143,7 +124,7 @@ class Decomposition:
     self.__scaling = value
     # self.__scalingChanged = True
     if self.auto:
-      self.decompose()
+      self.decompose(self.__data)
 
   @property
   def sources(self):
@@ -162,12 +143,14 @@ class Decomposition:
       scores = self.model.scores_
       return scores
 
-  def decompose(self):
+
+  def decompose(self, data = None):
     """
     get the data, init the pca model and then plot the results
     """
     success = False
-    data = self.buildSourceData(self.__sources)
+    if data is None:
+      data = self.buildSourceData(self.__sources)
     if data is not None:
       if data.shape[0] > 1: # we have enough entries
         data_ = data.replace(np.nan, 0)
@@ -202,7 +185,7 @@ class Decomposition:
 
 
 
-  # @cached('_buildSourceData', maxItems=256, debug=False)
+  @cached('_buildSourceData', maxItems=256, debug=False)
   def buildSourceData(self, sources, xRange=[-1,9]):
     """
 
@@ -316,7 +299,6 @@ class PcaModule(CcpnModule):
       self.application = self.mainWindow.application
       self.project = self.mainWindow.project
       self.decomposition = Decomposition(self.project)
-      self.decomposition.pcaModule = self
       self.decomposition.auto = True
 
     ####  Main Widgets
@@ -349,8 +331,8 @@ class PcaModule(CcpnModule):
     self._plotItem.addItem(self.yLine)
     self.mainWidget.getLayout().addWidget(self._view, mi,0)
 
-    mi += 1
-    self.saveButton = Button(self.mainWidget, 'Create PCA SpectrumGroup ', callback=self.saveOutput, grid=(mi, 0),gridSpan=(mi,0))
+    # mi += 1
+    # self.saveButton = Button(self.mainWidget, 'Create PCA SpectrumGroup ', callback=self.saveOutput, grid=(mi, 0),gridSpan=(mi,0))
 
     #### Settings widgets
     si = 0 # Settings (row) index
@@ -545,8 +527,8 @@ class PcaModule(CcpnModule):
 
 
   def saveOutput(self):
-    saveName = self.pcaOutput.sgNameEntryBox.text()
-    descale = self.pcaOutput.descaleCheck.isChecked()
+    saveName = self.sgNameEntryBox.text()
+    descale = self.descaleCheck.isChecked()
     self.decomposition.saveLoadingsToSpectra(prefix=saveName, descale=descale)
 
 
