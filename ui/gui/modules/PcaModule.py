@@ -55,6 +55,7 @@ from ccpn.core.lib.Cache import cached
 from ccpn.core.lib.SpectrumLib import get1DdataInRange
 
 METABOLOMICS_SAVE_LOCATION = os.path.join('internal','metabolomics')
+DefaultRoi = [[-10, -10], [10, -10], [10, 10], [-10, 10]]
 DefaultPC1 = 'PC1'
 DefaultPC2 = 'PC2'
 PC = 'PC'
@@ -245,6 +246,43 @@ class Decomposition:
       raise NotImplementedError("Only pareto, unit variance and 'none' type scalings currently supported.")
     return data
 
+  def splitDataWithinRange(self, scores, xLabel, yLabel, minX, maxX, minY, maxY):
+    """
+    :param scores: dataframe with all scores
+    :param xLabel: label1 , eg PC1
+    :param yLabel: label1 , eg PC2
+    :param minX:  min value for Y
+    :param maxX:  Max value for X
+    :param minY: min value for Y
+    :param maxY: max value for Y
+    :return:  inners  dataframe like scores but containing only the values within the ranges  and
+              outers rest not included in inners
+    """
+
+    bools = scores[xLabel].between(minX, maxX, inclusive=True) & scores[yLabel].between(minY, maxY, inclusive=True)
+    inners = scores[bools]
+    outers = scores[-bools]
+    filteredInners = inners.filter(items=[xLabel, yLabel])
+
+    return  filteredInners, outers
+
+  def createSpectrumGroupFromOutliners(self, outlinersDataFrame, prefix='PCA_Outliners_'):
+    """
+
+    :param outlinersDataFrame:
+    :return: a spectrumGroup with the spectra which had outliners values
+    """
+
+    spectra = list(outlinersDataFrame.index)
+    sgNames = [sg.name for sg in self.project.spectrumGroups if sg.name.startswith(prefix)]
+    prefix += str(len(sgNames)+1)
+    if not self.project.getByPid('SG:'+prefix):
+      g = self.project.newSpectrumGroup(prefix, spectra)
+    else:
+      g = self.project.newSpectrumGroup(prefix+prefix, spectra)
+    return g
+
+
   def saveLoadingsToSpectra(self, prefix='test_pca', descale=True, components=None):
     saveLocation = os.path.join(self.project.path, METABOLOMICS_SAVE_LOCATION, 'pca', prefix)
 
@@ -322,8 +360,10 @@ class PcaModule(CcpnModule):
     self._plotItem = self._view.addPlot()
     self.scatterPlot = pg.ScatterPlotItem(size=10, pen=pg.mkPen(None), brush=pg.mkBrush(255, 255, 255, 120), bc =bc)
     self.scatterPlot.sigClicked.connect(self._plotClicked)
+    self.roi = pg.PolyLineROI(DefaultRoi, closed=True)
 
     self._plotItem.addItem(self.scatterPlot)
+    self._plotItem.addItem(self.roi)
 
     self.xLine = pg.InfiniteLine(angle=90, pos=0, pen=pg.functions.mkPen(hexToRgb(gridColour), width=1, style=QtCore.Qt.DashLine))
     self._plotItem.addItem(self.xLine)
@@ -557,11 +597,11 @@ if __name__ == '__main__':
   moduleArea.addModule(module)
 
 
-  n = 5
-  pos = np.random.normal(size=(2, n), scale=1e-5)
+  n = 10
+  pos = np.random.normal(size=(5, n), scale=1e-5)
   spots = [{'pos': pos[:, i], 'data': 1} for i in range(n)] + [{'pos': [0, 0], 'data': 1}]
   module._plotSpots(spots)
-
+  print(module.scatterPlot.getData())
 
   win.setCentralWidget(moduleArea)
   win.resize(1000, 500)
