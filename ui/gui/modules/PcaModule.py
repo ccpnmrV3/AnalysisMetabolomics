@@ -71,6 +71,10 @@ pareto = 'pareto'
 variance = 'unit variance'
 
 
+def percentage(percent, whole):
+  return (percent * whole) / 100.0
+
+
 class Decomposition:
   """
   Base class for the Decomposition Module (the old "interactor"`!)
@@ -361,6 +365,7 @@ class PcaModule(CcpnModule):
     self.scatterPlot = pg.ScatterPlotItem(size=10, pen=pg.mkPen(None), brush=pg.mkBrush(255, 255, 255, 120), bc =bc)
     self.scatterPlot.sigClicked.connect(self._plotClicked)
     self.roi = pg.ROI(*DefaultRoi)
+    # self.roi.mouseHovering = True
     self._setROIhandles()
     self.roi.sigRegionChangeFinished.connect(self.getROIdata)
     self.xLine = pg.InfiniteLine(angle=90, pos=0, pen=pg.functions.mkPen(hexToRgb(gridColour), width=1, style=QtCore.Qt.DashLine))
@@ -401,6 +406,19 @@ class PcaModule(CcpnModule):
     self.scalingMethodPulldown = PulldownList(self.settingsWidget, callback=self.setScaling,  grid=(si,1))
     self.scalingMethodPulldown.setData([pareto, variance, none])
     si += 1
+    l = Label(self.settingsWidget, 'ROI:', grid=(si, 0))
+    self.roiCheckbox = CheckBox(self.settingsWidget, checked=True, callback=self._toggleROI, grid=(si, 1))
+    self._toggleROI()
+    si += 1
+
+  def _toggleROI(self,*args):
+    """ Toggle the ROI from the scatter plot"""
+    v = self.roiCheckbox.get()
+    if v:
+      self.roi.show()
+    else:
+      self.roi.hide()
+
 
   def _setROIhandles(self):
     """ sets the handle in each corners, no matter the roi sizes """
@@ -418,11 +436,20 @@ class PcaModule(CcpnModule):
     state = self.roi.getState()
     pos = state['pos']
     size = state['size']
-    minX = pos[0]
-    maxX = pos[0]+size[0]
-    minY = pos[1]
-    maxY = pos[1] + size[1]
-    return [minX, maxX, minY, maxY]
+    xMin = pos[0]
+    xMax = pos[0]+size[0]
+    yMin = pos[1]
+    yMax = pos[1] + size[1]
+    return [xMin, xMax, yMin, yMax]
+
+  def setROI(self, xMin,xMax,yMin,yMax):
+    state = {'pos':[], 'size':[], 'angle':0}
+    xSize = abs(xMin) + xMax
+    ySize = abs(yMin) + yMax
+    state['pos'] = [xMin,yMin]
+    state['size'] = [xSize, ySize]
+    self.roi.setState(state)
+
 
   def getPcaResults(self):
     """ gets the results from the base class decomposition """
@@ -577,6 +604,36 @@ class PcaModule(CcpnModule):
     self.decomposition.sources = self.sourceList.getSelectedTexts()
     self._setAxes(scores = self.getPcaResults())
     self._axisChanged()
+    self.presetROI()
+
+
+
+  def presetROI(self, func = np.median, percent=20):
+    """
+    Apply the function (default np.mean) to the currently displayed plot data
+    to get the x,y values for setting the ROI box.
+    :param func: a function applicable to the x,y data
+    :return: set the ROI on the scatter plot
+    """
+
+    x, y = self.scatterPlot.getData()
+
+    xR = func(x)
+    yR = func(y)
+    xRange = np.max(x) - np.min(x)
+    yRange = np.max(y) - np.min(y)
+
+    xperc = percentage(percent, xRange)
+    yperc = percentage(percent, yRange)
+
+    xMin = xR - xperc
+    yMin = yR - yperc
+    xMax = xR + xperc
+    yMax = yR + yperc
+
+
+    self.setROI(xMin, xMax, yMin, yMax)
+
 
   def _axisChanged(self, *args):
     """callback from axis pulldowns """
@@ -622,7 +679,7 @@ if __name__ == '__main__':
   n = 10
   pos = np.random.normal(size=(5, n), scale=1e-5)
   spots = [{'pos': pos[:, i], 'data': 1} for i in range(n)] + [{'pos': [0, 0], 'data': 1}]
-  module._plotSpots(spots)
+  module.setROI(-10,10,-10,10)
 
   win.setCentralWidget(moduleArea)
   win.resize(1000, 500)
