@@ -55,7 +55,7 @@ from ccpn.core.lib.Cache import cached
 from ccpn.core.lib.SpectrumLib import get1DdataInRange
 
 METABOLOMICS_SAVE_LOCATION = os.path.join('internal','metabolomics')
-DefaultRoi = [[-10, -10], [10, -10], [10, 10], [-10, 10]]
+DefaultRoi = [[0, 0], [10, 10]]#
 DefaultPC1 = 'PC1'
 DefaultPC2 = 'PC2'
 PC = 'PC'
@@ -360,14 +360,15 @@ class PcaModule(CcpnModule):
     self._plotItem = self._view.addPlot()
     self.scatterPlot = pg.ScatterPlotItem(size=10, pen=pg.mkPen(None), brush=pg.mkBrush(255, 255, 255, 120), bc =bc)
     self.scatterPlot.sigClicked.connect(self._plotClicked)
-    self.roi = pg.PolyLineROI(DefaultRoi, closed=True)
+    self.roi = pg.ROI(*DefaultRoi)
+    self._setROIhandles()
+    self.roi.sigRegionChangeFinished.connect(self.getROIdata)
+    self.xLine = pg.InfiniteLine(angle=90, pos=0, pen=pg.functions.mkPen(hexToRgb(gridColour), width=1, style=QtCore.Qt.DashLine))
+    self.yLine = pg.InfiniteLine(angle=0, pos=0,pen=pg.functions.mkPen(hexToRgb(gridColour), width=1, style=QtCore.Qt.DashLine))
 
     self._plotItem.addItem(self.scatterPlot)
     self._plotItem.addItem(self.roi)
-
-    self.xLine = pg.InfiniteLine(angle=90, pos=0, pen=pg.functions.mkPen(hexToRgb(gridColour), width=1, style=QtCore.Qt.DashLine))
     self._plotItem.addItem(self.xLine)
-    self.yLine = pg.InfiniteLine(angle=0, pos=0,pen=pg.functions.mkPen(hexToRgb(gridColour), width=1, style=QtCore.Qt.DashLine))
     self._plotItem.addItem(self.yLine)
     self.mainWidget.getLayout().addWidget(self._view, mi,0)
 
@@ -401,6 +402,27 @@ class PcaModule(CcpnModule):
     self.scalingMethodPulldown.setData([pareto, variance, none])
     si += 1
 
+  def _setROIhandles(self):
+    """ sets the handle in each corners, no matter the roi sizes """
+    self.roi.addScaleHandle([1, 1], [0.5, 0.5], name = 'topRight')
+    self.roi.addScaleHandle([0, 1], [1, 0],     name = 'topLeft')
+    self.roi.addScaleHandle([0, 0], [0.5, 0.5], name = 'bottomLeft')
+    self.roi.addScaleHandle([1, 0], [0, 1],     name = 'bottomRight'),
+
+
+  def getROIdata(self):
+    """
+    getState returns a dict ['pos']  left bottom corner, ['size'] the size of RO1 and ['angle'] for this RectROI is 0
+    :return: a list of rectangle coordinates in the format minX, maxX, minY, maxY
+    """
+    state = self.roi.getState()
+    pos = state['pos']
+    size = state['size']
+    minX = pos[0]
+    maxX = pos[0]+size[0]
+    minY = pos[1]
+    maxY = pos[1] + size[1]
+    return [minX, maxX, minY, maxY]
 
   def getPcaResults(self):
     """ gets the results from the base class decomposition """
@@ -601,7 +623,6 @@ if __name__ == '__main__':
   pos = np.random.normal(size=(5, n), scale=1e-5)
   spots = [{'pos': pos[:, i], 'data': 1} for i in range(n)] + [{'pos': [0, 0], 'data': 1}]
   module._plotSpots(spots)
-  print(module.scatterPlot.getData())
 
   win.setCentralWidget(moduleArea)
   win.resize(1000, 500)
