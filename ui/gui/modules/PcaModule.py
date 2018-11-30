@@ -30,17 +30,18 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from ccpn.core.Spectrum import Spectrum
 from ccpn.core.SpectrumGroup import SpectrumGroup
 from ccpn.ui.gui.modules.CcpnModule import CcpnModule
-from ccpn.ui.gui.widgets.Base import Base
+from ccpn.ui.gui.widgets.HLine import HLine
 from ccpn.ui.gui.widgets.Button import Button
 from ccpn.ui.gui.widgets.CheckBox import CheckBox
 from ccpn.ui.gui.widgets.Label import Label
 from ccpn.ui.gui.widgets.LineEdit import LineEdit
 from ccpn.ui.gui.widgets.ListWidget import ListWidget
 from ccpn.ui.gui.widgets.PulldownList import PulldownList
-from ccpn.ui.gui.widgets.Widget import Widget
-from ccpn.ui.gui.guiSettings import autoCorrectHexColour, getColours, CCPNGLWIDGET_HEXBACKGROUND, GUISTRIP_PIVOT
+from ccpn.ui.gui.widgets.Spinbox import Spinbox
+from ccpn.ui.gui.guiSettings import autoCorrectHexColour, getColours, CCPNGLWIDGET_HEXBACKGROUND,\
+  GUISTRIP_PIVOT, DIVIDER, CCPNGLWIDGET_SELECTAREA, CCPNGLWIDGET_PICKAREA
 from ccpn.ui.gui.widgets.SideBar import _openItemObject
-from ccpn.util.Colour import hexToRgb
+from ccpn.util.Colour import hexToRgb,rgbaRatioToHex
 from collections import OrderedDict
 import os
 import shutil
@@ -55,7 +56,13 @@ from ccpn.core.lib.Cache import cached
 from ccpn.core.lib.SpectrumLib import get1DdataInRange
 
 METABOLOMICS_SAVE_LOCATION = os.path.join('internal','metabolomics')
+
+PREFIX = 'PCA_output'
+PCA_Outliers_ = 'PCA_Outliers_'
+PCA_inROI_ = 'PCA_ROI_'
+
 DefaultRoi = [[0, 0], [10, 10]]#
+
 DefaultPC1 = 'PC1'
 DefaultPC2 = 'PC2'
 PC = 'PC'
@@ -66,9 +73,16 @@ TSA = 'TSA'
 #  Centering
 mean = 'mean'
 median = 'median'
+std = 'std'
 #
 pareto = 'pareto'
 variance = 'unit variance'
+
+# colours
+BackgroundColour = getColours()[CCPNGLWIDGET_HEXBACKGROUND]
+OriginAxes = pg.functions.mkPen(hexToRgb(getColours()[GUISTRIP_PIVOT]), width=1, style=QtCore.Qt.DashLine)
+ROIline = rgbaRatioToHex(*getColours()[CCPNGLWIDGET_SELECTAREA])
+
 
 
 def percentage(percent, whole):
@@ -267,10 +281,11 @@ class Decomposition:
     inners = scores[bools]
     outers = scores[-bools]
     filteredInners = inners.filter(items=[xLabel, yLabel])
+    filteredOuters = outers.filter(items=[xLabel, yLabel])
 
-    return  filteredInners, outers
+    return  filteredInners, filteredOuters
 
-  def createSpectrumGroupFromOutliners(self, outlinersDataFrame, prefix='PCA_Outliners_'):
+  def createSpectrumGroupFromOutliners(self, outlinersDataFrame, prefix=PCA_Outliers_):
     """
 
     :param outlinersDataFrame:
@@ -287,7 +302,7 @@ class Decomposition:
     return g
 
 
-  def saveLoadingsToSpectra(self, prefix='test_pca', descale=True, components=None):
+  def saveLoadingsToSpectra(self, prefix=PREFIX, descale=True, components=None):
     saveLocation = os.path.join(self.project.path, METABOLOMICS_SAVE_LOCATION, 'pca', prefix)
 
     sgNames = [sg.name for sg in self.project.spectrumGroups]
@@ -354,35 +369,34 @@ class PcaModule(CcpnModule):
     self.sourceList.setMaximumHeight(100)
     self.sourceList.itemSelectionChanged.connect(self._setSourcesSelection)
 
+    ### Scatter Plot setup
+    self._scatterView = pg.GraphicsLayoutWidget()
+    self._scatterView.setBackground(BackgroundColour)
+    self._plotItem = self._scatterView.addPlot()
+    self._scatterViewbox = self._plotItem.vb
+    self._plotItem.setMenuEnabled(False)
 
-    # self.pcaPlotRight = PcaScatterWidget(self.mainWidget, pcaModule=self, grid=(mi,1), gridSpan=(mi,0))
-
-    bc = getColours()[CCPNGLWIDGET_HEXBACKGROUND]
-    gridColour = getColours()[GUISTRIP_PIVOT]
-
-    self._view = pg.GraphicsLayoutWidget()
-    self._plotItem = self._view.addPlot()
-    self.scatterPlot = pg.ScatterPlotItem(size=10, pen=pg.mkPen(None), brush=pg.mkBrush(255, 255, 255, 120), bc =bc)
+    self.scatterPlot = pg.ScatterPlotItem(size=10, pen=pg.mkPen(None), brush=pg.mkBrush(255, 255, 255, 120))
     self.scatterPlot.sigClicked.connect(self._plotClicked)
-    self.roi = pg.ROI(*DefaultRoi)
-    # self.roi.mouseHovering = True
+    self.roi = pg.ROI(*DefaultRoi,pen=ROIline)
     self._setROIhandles()
     self.roi.sigRegionChangeFinished.connect(self.getROIdata)
-    self.xLine = pg.InfiniteLine(angle=90, pos=0, pen=pg.functions.mkPen(hexToRgb(gridColour), width=1, style=QtCore.Qt.DashLine))
-    self.yLine = pg.InfiniteLine(angle=0, pos=0,pen=pg.functions.mkPen(hexToRgb(gridColour), width=1, style=QtCore.Qt.DashLine))
+    self.xLine = pg.InfiniteLine(angle=90, pos=0, pen=OriginAxes)
+    self.yLine = pg.InfiniteLine(angle=0, pos=0, pen=OriginAxes)
 
     self._plotItem.addItem(self.scatterPlot)
     self._plotItem.addItem(self.roi)
     self._plotItem.addItem(self.xLine)
     self._plotItem.addItem(self.yLine)
-    self.mainWidget.getLayout().addWidget(self._view, mi,0)
+    self.mainWidget.getLayout().addWidget(self._scatterView, mi, 0)
 
+    ### Other buttons 
     # mi += 1
     # self.saveButton = Button(self.mainWidget, 'Create PCA SpectrumGroup ', callback=self.saveOutput, grid=(mi, 0),gridSpan=(mi,0))
 
     #### Settings widgets
     si = 0 # Settings (row) index
-    l = Label(self.settingsWidget, 'Output name:', grid=(si, 0))
+    l = Label(self.settingsWidget, 'Name:', grid=(si, 0))
     self.sgNameEntryBox = LineEdit(self.settingsWidget, text='pca', grid=(si, 1))
     si += 1
     l = Label(self.settingsWidget, 'x:', grid=(si, 0))
@@ -394,11 +408,11 @@ class PcaModule(CcpnModule):
     l = Label(self.settingsWidget, 'Descale Components:', grid=(si, 0))
     self.descaleCheck = CheckBox(self.settingsWidget, checked=True, grid=(si, 1))
     si +=1
-    l = Label(self.settingsWidget, 'Normalization:', grid=(si,0))
+    l = Label(self.settingsWidget, 'Normalisation:', grid=(si,0))
     self.normMethodPulldown = PulldownList(self.settingsWidget, callback=self._setNormalization, grid=(si,1))
     self.normMethodPulldown.setData([PQN, TSA, none])
     si += 1
-    l = Label(self.settingsWidget, 'Centering:', grid=(si,0))
+    l = Label(self.settingsWidget, 'Centring:', grid=(si,0))
     self.centMethodPulldown = PulldownList(self.settingsWidget, callback=self._setCentering, grid=(si,1))
     self.centMethodPulldown.setData([mean, median, none])
     si += 1
@@ -406,10 +420,39 @@ class PcaModule(CcpnModule):
     self.scalingMethodPulldown = PulldownList(self.settingsWidget, callback=self.setScaling,  grid=(si,1))
     self.scalingMethodPulldown.setData([pareto, variance, none])
     si += 1
+    HLine(self.settingsWidget, grid=(si, 0), gridSpan=(0, 2), colour=getColours()[DIVIDER], height=5)
+
     l = Label(self.settingsWidget, 'ROI:', grid=(si, 0))
     self.roiCheckbox = CheckBox(self.settingsWidget, checked=True, callback=self._toggleROI, grid=(si, 1))
     self._toggleROI()
     si += 1
+    l = Label(self.settingsWidget, 'Centre:', grid=(si, 0))
+    self.roiMethodPulldown = PulldownList(self.settingsWidget, callback=self._roiPresetCallBack, grid=(si, 1))
+    self.roiMethodPulldown.setData([mean, median, std], objects= [np.mean, np.median, np.std])
+    si += 1
+    l = Label(self.settingsWidget, '%:', grid=(si, 0))
+    self.roiPercValue = Spinbox(self.settingsWidget, value =10, grid=(si, 1))
+    self.roiPercValue.valueChanged.connect(self._roiPresetCallBack)
+
+
+  ########### Generic functions to 'talk' with the decomposition base class ############
+
+  def getPcaResults(self):
+    """ gets the results from the base class decomposition """
+
+    if self.decomposition is not None:
+      scoresDF = self.decomposition.scores
+      if scoresDF is not None:
+        if scoresDF.shape[0] > 1: #No point in plotting
+          return scoresDF
+
+
+  ########### ROI box for scatter Plot ############
+
+  def _roiPresetCallBack(self, *args):
+    v = self.roiMethodPulldown.getObject()
+    perc = self.roiPercValue.get()
+    self.presetROI(v, perc)
 
   def _toggleROI(self,*args):
     """ Toggle the ROI from the scatter plot"""
@@ -419,14 +462,12 @@ class PcaModule(CcpnModule):
     else:
       self.roi.hide()
 
-
   def _setROIhandles(self):
     """ sets the handle in each corners, no matter the roi sizes """
     self.roi.addScaleHandle([1, 1], [0.5, 0.5], name = 'topRight')
     self.roi.addScaleHandle([0, 1], [1, 0],     name = 'topLeft')
     self.roi.addScaleHandle([0, 0], [0.5, 0.5], name = 'bottomLeft')
     self.roi.addScaleHandle([1, 0], [0, 1],     name = 'bottomRight'),
-
 
   def getROIdata(self):
     """
@@ -442,7 +483,43 @@ class PcaModule(CcpnModule):
     yMax = pos[1] + size[1]
     return [xMin, xMax, yMin, yMax]
 
+  def presetROI(self, func = np.median, percent=20):
+    """
+    Apply the function (default np.mean) to the currently displayed plot data
+    to get the x,y values for setting the ROI box.
+    :param func: a function applicable to the x,y data
+    :return: set the ROI on the scatter plot
+    """
+
+    x, y = self.scatterPlot.getData()
+    if not len(x)>0 and not len(y)> 0:
+      return
+
+    xR = func(x)
+    yR = func(y)
+    xRange = np.max(x) - np.min(x)
+    yRange = np.max(y) - np.min(y)
+
+    xperc = percentage(percent, xRange)
+    yperc = percentage(percent, yRange)
+
+    xMin = xR - xperc
+    yMin = yR - yperc
+    xMax = xR + xperc
+    yMax = yR + yperc
+
+    self.setROI(xMin, xMax, yMin, yMax)
+
   def setROI(self, xMin,xMax,yMin,yMax):
+    """
+    a conversion mechanism to the internal roi setState
+    :param xMin:
+    :param xMax:
+    :param yMin:
+    :param yMax:
+    :return:  set the ROI box
+     """
+
     state = {'pos':[], 'size':[], 'angle':0}
     xSize = abs(xMin) + xMax
     ySize = abs(yMin) + yMax
@@ -451,17 +528,10 @@ class PcaModule(CcpnModule):
     self.roi.setState(state)
 
 
-  def getPcaResults(self):
-    """ gets the results from the base class decomposition """
-
-    if self.decomposition is not None:
-      scoresDF = self.decomposition.scores
-      if scoresDF is not None:
-        if scoresDF.shape[0] > 1: #No point in plotting
-          return scoresDF
+  ########### PCA scatter Plot  ############
 
 
-  def plotPCAresults(self, dataFrame, xAxisLabel='PC1', yAxisLabel='PC2'):
+  def plotPCAscatterResults(self, dataFrame, xAxisLabel='PC1', yAxisLabel='PC2'):
     """
 
     :param dataFrame: in the format from the PCA Class
@@ -487,8 +557,6 @@ class PcaModule(CcpnModule):
     self._plotSpots(spots)
     self._plotItem.setLabel('bottom', xAxisLabel)
     self._plotItem.setLabel('left', yAxisLabel)
-
-
 
 
   def _plotSpots(self, spots):
@@ -522,29 +590,65 @@ class PcaModule(CcpnModule):
       if obj is not None:
         _openItemObject(self.mainWindow, [obj])
 
+  def _setAxes(self, scores):
+    """ Set X and Y axes from the PCA scores dataFrame.
+     This because we don't know at priory how many PC we will have. Defaults PC1 and PC2"""
+    if scores is not None:
+      labels = scores.keys()
+      self.xAxisSelector.setData(list(labels))
+      self.yAxisSelector.setData(list(labels))
+      self.xAxisSelector.select(DefaultPC1)
+      self.yAxisSelector.select(DefaultPC2)
+    else:
+      self.scatterPlot.clear()
+
+  def _clearPlot(self):
+
+    self.scatterPlot.clear()
+    self.scatterPlot.viewTransformChanged()
+    self.decomposition.sources = []
+    self.xAxisSelector.setData([])
+    self.yAxisSelector.setData([])
+
+  def _axisChanged(self, *args):
+    """callback from axis pulldowns """
+    x = self.xAxisSelector.getText()
+    y = self.yAxisSelector.getText()
+    scores = self.getPcaResults()
+    self.plotPCAscatterResults(scores, xAxisLabel=x, yAxisLabel=y)
+
+  def refreshPlot(self, ):
+    self._setSourcesSelection()
+
+
+
+  ########### Settings widgets callback  ############
+
+  def _setSourcesSelection(self):
+    """ When selecting the item in the source ListWidget it starts the pca machinery
+    The Source widgets checks if has enough item to start, otherwise it clears itself.
+    """
+
+    if len(self.sourceList.getSelectedTexts()) == 0:  # if nothing selected, then do nothing
+      self._clearPlot()
+      return
+
+    elif len(self.sourceList.getSelectedTexts()) == 1:  # only SG is allowed a single selection
+      obj = self.project.getByPid(self.sourceList.getSelectedTexts()[0])
+      if not isinstance(obj, SpectrumGroup):
+        self._clearPlot()
+        return
+
+    self.decomposition.sources = self.sourceList.getSelectedTexts()
+    self._setAxes(scores=self.getPcaResults())
+    self._axisChanged()
+    self._roiPresetCallBack()
 
   def _sourceListDroppedCallback(self, ll):
     if len(ll)>0:
       data = ll[0]
       pids = data.get('pids')
       self.sourceList.selectItems(pids)
-
-  def _clearSelection(self, listWidget):
-    for i in range(listWidget.count()):
-      item = listWidget.item(i)
-      item.setSelected(False)
-
-  def _toggleGraph(self):
-    if self.toggleLeftGraph.isChecked():
-      self.pcaPlotLeft.show()
-    else:
-      self.pcaPlotLeft.hide()
-
-  def setSourceDataOptions(self, sourceData=None):
-    self.settings.sourceList.clear()
-    if sourceData is not None:
-      sdo = [s.name for s in sourceData]
-      self.sourceList.addItems(sdo)
 
   def _setNormalization(self, normalization):
     if self.decomposition:
@@ -567,82 +671,6 @@ class PcaModule(CcpnModule):
       self.decomposition.scaling = scaling
       if self.getPcaResults() is not None:
         self.refreshPlot()
-
-  def _setAxes(self, scores):
-    """ Set X and Y axes from the PCA scores dataFrame.
-     This because we don't know at priory how many PC we will have. Defaults PC1 and PC2"""
-    if scores is not None:
-      labels = scores.keys()
-      self.xAxisSelector.setData(list(labels))
-      self.yAxisSelector.setData(list(labels))
-      self.xAxisSelector.select(DefaultPC1)
-      self.yAxisSelector.select(DefaultPC2)
-    else:
-      self.scatterPlot.clear()
-
-  def _clearPlot(self):
-
-    self.scatterPlot.clear()
-    self.scatterPlot.viewTransformChanged()
-    self.decomposition.sources = []
-    self.xAxisSelector.setData([])
-    self.yAxisSelector.setData([])
-
-
-  def _setSourcesSelection(self):
-    """ this starts the pca machinery"""
-    if len( self.sourceList.getSelectedTexts()) == 0: # if nothing selected, then do nothing
-      self._clearPlot()
-      return
-
-    elif len(self.sourceList.getSelectedTexts()) == 1: # only SG is allowed a single selection
-      obj = self.project.getByPid(self.sourceList.getSelectedTexts()[0])
-      if not isinstance(obj, SpectrumGroup):
-        self._clearPlot()
-        return
-
-    self.decomposition.sources = self.sourceList.getSelectedTexts()
-    self._setAxes(scores = self.getPcaResults())
-    self._axisChanged()
-    self.presetROI()
-
-
-
-  def presetROI(self, func = np.median, percent=20):
-    """
-    Apply the function (default np.mean) to the currently displayed plot data
-    to get the x,y values for setting the ROI box.
-    :param func: a function applicable to the x,y data
-    :return: set the ROI on the scatter plot
-    """
-
-    x, y = self.scatterPlot.getData()
-
-    xR = func(x)
-    yR = func(y)
-    xRange = np.max(x) - np.min(x)
-    yRange = np.max(y) - np.min(y)
-
-    xperc = percentage(percent, xRange)
-    yperc = percentage(percent, yRange)
-
-    xMin = xR - xperc
-    yMin = yR - yperc
-    xMax = xR + xperc
-    yMax = yR + yperc
-
-
-    self.setROI(xMin, xMax, yMin, yMax)
-
-
-  def _axisChanged(self, *args):
-    """callback from axis pulldowns """
-    x = self.xAxisSelector.getText()
-    y = self.yAxisSelector.getText()
-    self.plotPCAresults(self.decomposition.scores, xAxisLabel=x, yAxisLabel=y)
-
-  def refreshPlot(self, ):
-    self._setSourcesSelection()
 
 
   def saveOutput(self):
