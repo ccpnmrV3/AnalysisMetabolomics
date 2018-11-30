@@ -25,6 +25,7 @@ __date__ = "$Date: 2017-04-07 10:28:45 +0000 (Fri, April 07, 2017) $"
 # Start of code
 #=========================================================================================
 from ccpn.util.Logging import getLogger
+from functools import partial
 import pyqtgraph as pg
 from PyQt5 import QtCore, QtGui, QtWidgets
 from ccpn.core.Spectrum import Spectrum
@@ -35,11 +36,13 @@ from ccpn.ui.gui.widgets.Frame import Frame
 from ccpn.ui.gui.widgets.Tabs import Tabs
 from ccpn.ui.gui.widgets.ButtonList import ButtonList
 from ccpn.ui.gui.widgets.CheckBox import CheckBox
+from ccpn.ui.gui.widgets.Menu import Menu
 from ccpn.ui.gui.widgets.Label import Label
 from ccpn.ui.gui.widgets.LineEdit import LineEdit
 from ccpn.ui.gui.widgets.ListWidget import ListWidget
 from ccpn.ui.gui.widgets.PulldownList import PulldownList
 from ccpn.ui.gui.widgets.Spinbox import Spinbox
+from ccpn.ui.gui.widgets.CustomExportDialog import CustomExportDialog
 from ccpn.ui.gui.guiSettings import autoCorrectHexColour, getColours, CCPNGLWIDGET_HEXBACKGROUND,\
   GUISTRIP_PIVOT, DIVIDER, CCPNGLWIDGET_SELECTAREA, CCPNGLWIDGET_PICKAREA
 from ccpn.ui.gui.widgets.SideBar import _openItemObject
@@ -61,7 +64,6 @@ from ccpn.core.lib.SpectrumLib import get1DdataInRange
 METABOLOMICS_SAVE_LOCATION = os.path.join('internal','metabolomics')
 
 PREFIX = 'PCA_output'
-PCA_Outliers_ = 'PCA_Outliers_'
 PCA_inROI_ = 'PCA_ROI_'
 
 DefaultRoi = [[0, 0], [10, 10]]#
@@ -304,14 +306,15 @@ class Decomposition:
 
     return  filteredInners, filteredOuters
 
-  def createSpectrumGroupFromOutliners(self, outlinersDataFrame, prefix=PCA_Outliers_):
+  def createSpectrumGroupFromScores(self, scoresDF, prefix=PREFIX):
     """
 
     :param outlinersDataFrame:
     :return: a spectrumGroup with the spectra which had outliners values
     """
 
-    spectra = list(outlinersDataFrame.index)
+    spectra = list(scoresDF.index)
+    # need to check if they are all spectra
     sgNames = [sg.name for sg in self.project.spectrumGroups if sg.name.startswith(prefix)]
     prefix += str(len(sgNames)+1)
     if not self.project.getByPid('SG:'+prefix):
@@ -369,6 +372,7 @@ class PcaModule(CcpnModule):
 
     self.mainWindow = mainWindow
     self.decomposition = None
+    self._exportDialog = None
 
     if self.mainWindow: # without mainWindow will open only the Gui
       self.current = self.mainWindow.current
@@ -416,6 +420,7 @@ class PcaModule(CcpnModule):
 
     #### Settings widgets
     self._setSettingsWidgets()
+
 
 
   def _setSettingsWidgets(self):
@@ -494,6 +499,8 @@ class PcaModule(CcpnModule):
     self._scatterView.setBackground(BackgroundColour)
     self._plotItem = self._scatterView.addPlot()
     self._scatterViewbox = self._plotItem.vb
+    self._scatterViewbox.mouseClickEvent = self._scatterViewboxMouseClickEvent
+
     self._plotItem.setMenuEnabled(False)
 
     self.scatterPlot = pg.ScatterPlotItem(size=10, pen=pg.mkPen(None), brush=pg.mkBrush(255, 255, 255, 120))
@@ -553,6 +560,11 @@ class PcaModule(CcpnModule):
     perc = self.roiPercValue.get()
     self.presetROI(v, perc)
 
+  def _roiMouseActionCallBack(self, *args):
+    """ called by the context menu. Sets the settings checkbox, The settings CB will do the actual work"""
+    self.roiCheckbox.set(not self.roiCheckbox.get())
+    self._toggleROI()
+
   def _toggleROI(self,*args):
     """ Toggle the ROI from the scatter plot"""
     v = self.roiCheckbox.get()
@@ -570,7 +582,8 @@ class PcaModule(CcpnModule):
 
   def getROIdata(self):
     """
-    getState returns a dict ['pos']  left bottom corner, ['size'] the size of RO1 and ['angle'] for this RectROI is 0
+    the values for the ROI
+    (getState returns a dict ['pos']  left bottom corner, ['size'] the size of RO1 and ['angle'] for this RectROI is 0)
     :return: a list of rectangle coordinates in the format minX, maxX, minY, maxY
     """
     state = self.roi.getState()
@@ -722,6 +735,66 @@ class PcaModule(CcpnModule):
 
   def refreshPlot(self, ):
     self._setSourcesSelection()
+
+
+  def _createGroupFromROI(self, inside=True):
+
+    xsel = self.xAxisSelector.get()
+    ysel = self.yAxisSelector.get()
+    xl = PC + str(xsel)
+    yl = PC + str(ysel)
+    scores = self.getPcaResults()
+    if scores is not None:
+      roi = self.getROIdata()
+      i,o = self.decomposition.splitDataWithinRange(scores, xl, yl, *roi)
+      if inside:
+        self.decomposition.createSpectrumGroupFromScores(i)
+      else:
+        self.decomposition.createSpectrumGroupFromScores(o)
+
+  def _scatterViewboxMouseClickEvent(self, event):
+
+    if event.button() == QtCore.Qt.RightButton:
+      event.accept()
+      self._raiseScatterContextMenu(event)
+
+    elif event.button() == QtCore.Qt.LeftButton:
+      event.accept()
+
+  def _showExportDialog(self, viewBox):
+    """
+
+    :param viewBox: the viewBox obj for the selected plot
+    :return:
+    """
+
+    if self._exportDialog is None:
+      self._exportDialog = CustomExportDialog(viewBox.scene(), titleName='Exporting')
+    self._exportDialog.show(self)
+
+  def _raiseScatterContextMenu(self, ev):
+
+    self._scatterContextMenu = Menu('', None, isFloatWidget=True)
+    self._scatterContextMenu.addAction('Reset View', self._plotItem.autoRange)
+    self._scatterContextMenu.addSeparator()
+
+    # ROI
+    self.roiMouseAction = QtGui.QAction("ROI", self, triggered=self._roiMouseActionCallBack, checkable=True)
+    self.roiMouseAction.setChecked(self.roiCheckbox.get())
+    self._scatterContextMenu.addAction(self.roiMouseAction)
+
+    self.groupInRoiAction = QtGui.QAction("Create Group from inside ROI", self, triggered=self._createGroupFromROI)
+    self.groupOutRoiAction = QtGui.QAction("Create Group from outside ROI", self, triggered=partial(self._createGroupFromROI, False))
+    self._scatterContextMenu.addAction(self.groupInRoiAction)
+    self._scatterContextMenu.addAction(self.groupOutRoiAction)
+
+    self._scatterContextMenu.addSeparator()
+
+    self._scatterContextMenu.addSeparator()
+    # self.exportAction = QtGui.QAction("Export image...", self, triggered=partial(self._showExportDialog, self._scatterViewbox))
+    # self._scatterContextMenu.addAction(self.exportAction)
+
+    self._scatterContextMenu.exec_(ev.screenPos().toPoint())
 
   ########### Variance Plot ############
 
