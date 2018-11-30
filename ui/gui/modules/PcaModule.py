@@ -770,7 +770,7 @@ class PcaModule(CcpnModule):
 
     if self._exportDialog is None:
       self._exportDialog = CustomExportDialog(viewBox.scene(), titleName='Exporting')
-    self._exportDialog.show(self)
+    self._exportDialog.show(viewBox)
 
   def _raiseScatterContextMenu(self, ev):
 
@@ -791,8 +791,8 @@ class PcaModule(CcpnModule):
     self._scatterContextMenu.addSeparator()
 
     self._scatterContextMenu.addSeparator()
-    # self.exportAction = QtGui.QAction("Export image...", self, triggered=partial(self._showExportDialog, self._scatterViewbox))
-    # self._scatterContextMenu.addAction(self.exportAction)
+    self.exportAction = QtGui.QAction("Export image...", self, triggered=partial(self._showExportDialog, self._scatterViewbox))
+    self._scatterContextMenu.addAction(self.exportAction)
 
     self._scatterContextMenu.exec_(ev.screenPos().toPoint())
 
