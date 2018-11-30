@@ -174,6 +174,13 @@ class Decomposition:
       variance = self.model.explainedVariance_
       return variance
 
+  @property
+  def loadings(self):
+    """ loadings as a pandas dataframe"""
+    if self.model is not None:
+      loadings = self.model.loadings_
+      return loadings
+
 
   def decompose(self, data = None):
     """
@@ -393,8 +400,7 @@ class PcaModule(CcpnModule):
     self.vectorFrame = Frame(self.mainWidget, setLayout=True)
     self.vectorFrame.setContentsMargins(1, 10, 1, 10)
     self._setVectorTabWidgets(layoutParent=self.vectorFrame)
-    self.tabWidget.addTab(self.vectorFrame, 'Vector')
-    self.tabWidget.setTabEnabled(1,False)
+    self.tabWidget.addTab(self.vectorFrame, 'Vectors')
 
     ## 3 Tab Variance 
     self.varianceFrame = Frame(self.mainWidget, setLayout=True)
@@ -404,7 +410,7 @@ class PcaModule(CcpnModule):
 
     ### Other buttons
     mi += 1
-    self.buttonList = ButtonList(self.mainWidget, texts=['Save as dataset', 'export'], callbacks=[None,None],
+    self.buttonList = ButtonList(self.mainWidget, texts=['Save as dataset', 'Export...'], callbacks=[None,None],
                                  grid=(mi, 0))
     self.buttonList.setEnabled(False)
 
@@ -420,12 +426,7 @@ class PcaModule(CcpnModule):
     l = Label(self.settingsWidget, 'Name:', grid=(si, 0))
     self.sgNameEntryBox = LineEdit(self.settingsWidget, text='pca', grid=(si, 1))
     si += 1
-    l = Label(self.settingsWidget, 'x:', grid=(si, 0))
-    self.xAxisSelector = PulldownList(self.settingsWidget, callback=self._axisChanged, grid=(si, 1))
-    si += 1
-    l = Label(self.settingsWidget, 'y:', grid=(si, 0))
-    self.yAxisSelector = PulldownList(self.settingsWidget, callback=self._axisChanged, grid=(si, 1))
-    si += 1
+
     l = Label(self.settingsWidget, 'Descale Components:', grid=(si, 0))
     self.descaleCheck = CheckBox(self.settingsWidget, checked=True, grid=(si, 1))
     si += 1
@@ -452,7 +453,7 @@ class PcaModule(CcpnModule):
     self.roiMethodPulldown.setData([mean, median, std], objects=[np.mean, np.median, np.std])
     si += 1
     l = Label(self.settingsWidget, '%:', grid=(si, 0))
-    self.roiPercValue = Spinbox(self.settingsWidget, value=10, grid=(si, 1))
+    self.roiPercValue = Spinbox(self.settingsWidget, value=10, min=1, grid=(si, 1))
     self.roiPercValue.valueChanged.connect(self._roiPresetCallBack)
 
   ########### Generic functions to 'talk' with the decomposition base class ############
@@ -474,6 +475,16 @@ class PcaModule(CcpnModule):
       if varianceDF is not None:
         if varianceDF.shape[0] > 1: #No point in plotting
           return varianceDF
+
+
+  def getVectorsResults(self):
+    """ gets the results from the base class decomposition """
+
+    if self.decomposition is not None:
+      vectorsDF = self.decomposition.loadings
+      if vectorsDF is not None:
+        if vectorsDF.shape[0] > 1:
+          return vectorsDF
 
   ########### Create all widgets for each tab ############
 
@@ -499,11 +510,30 @@ class PcaModule(CcpnModule):
     self._plotItem.addItem(self.yLine)
     layoutParent.getLayout().addWidget(self._scatterView)
 
+    f = Frame(layoutParent, setLayout=True, grid=(1,0))
+    self.yAxisSelector = Spinbox(f, prefix='Y: PC', min=1, grid=(0, 0))
+    self.xAxisSelector = Spinbox(f, prefix='X: PC', min=1, grid=(0, 1))
+    self.yAxisSelector.valueChanged.connect(self._axisChanged)
+    self.xAxisSelector.valueChanged.connect(self._axisChanged)
+
+
+
+
   def _setVectorTabWidgets(self, layoutParent):
     ### Scatter Plot setup
-    l = Label(layoutParent, 'Not implemented yet', grid=(0, 0))
+    self._vectorsView = pg.GraphicsLayoutWidget()
+    self._vectorsView.setBackground(BackgroundColour)
+    self.vectorsPlot = self._vectorsView.addPlot()
+    self._vectorsViewbox = self.vectorsPlot.vb
+    self.vectorsPlot.setMenuEnabled(False)
+    self.vectorsPlot.setLabel('bottom', 'PC component')
+    layoutParent.getLayout().addWidget(self._vectorsView)
 
-  
+    self.xVectorSelector = Spinbox(layoutParent, prefix='PC', min=1, grid=(1, 0))
+    self.xVectorSelector.valueChanged.connect(self._xVectorSelectorChanged)
+
+
+
   def _setVarianceTabWidgets(self, layoutParent):
     ### Scatter Plot setup
     self._varianceView = pg.GraphicsLayoutWidget()
@@ -600,7 +630,7 @@ class PcaModule(CcpnModule):
   ########### PCA scatter Plot  ############
 
 
-  def plotPCAscatterResults(self, dataFrame, xAxisLabel='PC1', yAxisLabel='PC2'):
+  def plotPCAscatterResults(self, dataFrame, xPC=1, yPC=2):
     """
 
     :param dataFrame: in the format from the PCA Class
@@ -611,6 +641,9 @@ class PcaModule(CcpnModule):
     :return:  transform the dataFrame in the plottable data format and plot it on the scatterPlot
 
     """
+    xAxisLabel = 'PC'+str(xPC)
+    yAxisLabel = 'PC'+str(yPC)
+
     if dataFrame is None:
       self.scatterPlot.clear()
       return
@@ -663,11 +696,13 @@ class PcaModule(CcpnModule):
     """ Set X and Y axes from the PCA scores dataFrame.
      This because we don't know at priory how many PC we will have. Defaults PC1 and PC2"""
     if scores is not None:
-      labels = scores.keys()
-      self.xAxisSelector.setData(list(labels))
-      self.yAxisSelector.setData(list(labels))
-      self.xAxisSelector.select(DefaultPC1)
-      self.yAxisSelector.select(DefaultPC2)
+      maxPC = scores.shape[1]
+      if maxPC>1:
+        self.xAxisSelector.setMaximum(maxPC)
+        self.yAxisSelector.setMaximum(maxPC)
+        self.xAxisSelector.set(1)
+        self.yAxisSelector.set(2)
+
     else:
       self.scatterPlot.clear()
 
@@ -676,15 +711,14 @@ class PcaModule(CcpnModule):
     self.scatterPlot.clear()
     self.scatterPlot.viewTransformChanged()
     self.decomposition.sources = []
-    self.xAxisSelector.setData([])
-    self.yAxisSelector.setData([])
+
 
   def _axisChanged(self, *args):
     """callback from axis pulldowns which will replot the scatter"""
-    x = self.xAxisSelector.getText()
-    y = self.yAxisSelector.getText()
+    x = self.xAxisSelector.get()
+    y = self.yAxisSelector.get()
     scores = self.getPcaResults()
-    self.plotPCAscatterResults(scores, xAxisLabel=x, yAxisLabel=y)
+    self.plotPCAscatterResults(scores, xPC=x, yPC=y)
 
   def refreshPlot(self, ):
     self._setSourcesSelection()
@@ -701,6 +735,27 @@ class PcaModule(CcpnModule):
     else:
       self.variancePlot.clear()
 
+
+  ########### Vectors Plot ############
+
+  def _setVectorSelector(self, vectorsDataFrame):
+    if vectorsDataFrame is not None:
+      vMax = vectorsDataFrame.shape[0]
+      self.xVectorSelector.set(1)
+      self.xVectorSelector.setMaximum(vMax)
+
+  def _xVectorSelectorChanged(self, value):
+    self.plotVectors(self.decomposition.loadings, value )
+
+  def plotVectors(self, vectorsDataFrame, pcComponent):
+
+    pcComponentLabel = PC+str(pcComponent)
+    if pcComponentLabel in vectorsDataFrame.index:
+      if vectorsDataFrame is not None:
+        y = vectorsDataFrame.ix[pcComponentLabel]
+        self.vectorsPlot.plot(y.values, pen='r',clear=True,)
+      else:
+        self.vectorsPlot.clear()
 
   ########### Settings widgets callback  ############
 
@@ -723,6 +778,7 @@ class PcaModule(CcpnModule):
     self._setAxes(scores=self.getPcaResults())
     self._axisChanged()
     self._roiPresetCallBack()
+    self._setVectorSelector(self.getVectorsResults())
     self.plotVariance(varianceDataFrame=self.getVarianceResults())
 
   def _sourceListDroppedCallback(self, ll):

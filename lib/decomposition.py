@@ -167,8 +167,6 @@ class PCA:
     scoresDF = pd.DataFrame(scores)
     scoresDF.columns = ['PC{}'.format(x) for x in range(1, scoresDF.shape[1]+1)]
     # scoresDF.columns.rename('Principle Components', inplace=True)
-    scoresDF.insert(0,'Variance',self.explainedVariance_.values)
-    scoresDF.insert(0,'#',np.arange(1,scoresDF.shape[0]+1))
     scoresDF.index = self.inputDF.index
     if scoresDF.index.name is None:
       scoresDF.index.rename('Observations', inplace=True)
