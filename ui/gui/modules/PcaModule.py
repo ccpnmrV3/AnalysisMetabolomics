@@ -31,7 +31,9 @@ from ccpn.core.Spectrum import Spectrum
 from ccpn.core.SpectrumGroup import SpectrumGroup
 from ccpn.ui.gui.modules.CcpnModule import CcpnModule
 from ccpn.ui.gui.widgets.HLine import HLine
-from ccpn.ui.gui.widgets.Button import Button
+from ccpn.ui.gui.widgets.Frame import Frame
+from ccpn.ui.gui.widgets.Tabs import Tabs
+from ccpn.ui.gui.widgets.ButtonList import ButtonList
 from ccpn.ui.gui.widgets.CheckBox import CheckBox
 from ccpn.ui.gui.widgets.Label import Label
 from ccpn.ui.gui.widgets.LineEdit import LineEdit
@@ -54,6 +56,7 @@ from ccpn.AnalysisMetabolomics.lib.decomposition import PCA
 from ccpn.AnalysisMetabolomics.lib.persistence import spectraDicToBrukerExperiment
 from ccpn.core.lib.Cache import cached
 from ccpn.core.lib.SpectrumLib import get1DdataInRange
+
 
 METABOLOMICS_SAVE_LOCATION = os.path.join('internal','metabolomics')
 
@@ -158,9 +161,18 @@ class Decomposition:
 
   @property
   def scores(self):
+    """ scores as a pandas dataframe """
+
     if self.model is not None:
       scores = self.model.scores_
       return scores
+
+  @property
+  def variance(self):
+    """ Variance as a pandas dataframe"""
+    if self.model is not None:
+      variance = self.model.explainedVariance_
+      return variance
 
 
   def decompose(self, data = None):
@@ -359,43 +371,52 @@ class PcaModule(CcpnModule):
       self.decomposition.auto = True
 
     ####  Main Widgets
+
     mi = 0 # main (row) index
     labelSource =  Label(self.mainWidget, 'Sources:', grid=(mi,0), gridSpan=(mi+1,0))
     mi += 1
     self.sourceList = ListWidget(self.mainWidget, acceptDrops=True, grid=(mi,0), gridSpan=(mi,0))
-    mi += 1
     self.sourceList.setSelectDeleteContextMenu()
     self.sourceList.dropped.connect(self._sourceListDroppedCallback)
     self.sourceList.setMaximumHeight(100)
     self.sourceList.itemSelectionChanged.connect(self._setSourcesSelection)
+    mi += 1
 
-    ### Scatter Plot setup
-    self._scatterView = pg.GraphicsLayoutWidget()
-    self._scatterView.setBackground(BackgroundColour)
-    self._plotItem = self._scatterView.addPlot()
-    self._scatterViewbox = self._plotItem.vb
-    self._plotItem.setMenuEnabled(False)
+    self.tabWidget = Tabs(self.mainWidget, grid=(mi, 0), gridSpan=(1, 3))
+    ## 1 Tab Scatter
+    self.scatterFrame = Frame(self.mainWidget, setLayout=True)
+    self.scatterFrame.setContentsMargins(1, 10, 1, 10)
+    self._setScatterTabWidgets(layoutParent=self.scatterFrame)
+    self.tabWidget.addTab(self.scatterFrame, 'Scatter')
 
-    self.scatterPlot = pg.ScatterPlotItem(size=10, pen=pg.mkPen(None), brush=pg.mkBrush(255, 255, 255, 120))
-    self.scatterPlot.sigClicked.connect(self._plotClicked)
-    self.roi = pg.ROI(*DefaultRoi,pen=ROIline)
-    self._setROIhandles()
-    self.roi.sigRegionChangeFinished.connect(self.getROIdata)
-    self.xLine = pg.InfiniteLine(angle=90, pos=0, pen=OriginAxes)
-    self.yLine = pg.InfiniteLine(angle=0, pos=0, pen=OriginAxes)
+    ## 2 Tab Vectors Disabled as not implemented yet
+    self.vectorFrame = Frame(self.mainWidget, setLayout=True)
+    self.vectorFrame.setContentsMargins(1, 10, 1, 10)
+    self._setVectorTabWidgets(layoutParent=self.vectorFrame)
+    self.tabWidget.addTab(self.vectorFrame, 'Vector')
+    self.tabWidget.setTabEnabled(1,False)
 
-    self._plotItem.addItem(self.scatterPlot)
-    self._plotItem.addItem(self.roi)
-    self._plotItem.addItem(self.xLine)
-    self._plotItem.addItem(self.yLine)
-    self.mainWidget.getLayout().addWidget(self._scatterView, mi, 0)
+    ## 3 Tab Variance 
+    self.varianceFrame = Frame(self.mainWidget, setLayout=True)
+    self.varianceFrame.setContentsMargins(1, 10, 1, 10)
+    self._setVarianceTabWidgets(layoutParent=self.varianceFrame)
+    self.tabWidget.addTab(self.varianceFrame, 'Variance')
 
-    ### Other buttons 
-    # mi += 1
-    # self.saveButton = Button(self.mainWidget, 'Create PCA SpectrumGroup ', callback=self.saveOutput, grid=(mi, 0),gridSpan=(mi,0))
+    ### Other buttons
+    mi += 1
+    self.buttonList = ButtonList(self.mainWidget, texts=['Save as dataset', 'export'], callbacks=[None,None],
+                                 grid=(mi, 0))
+    self.buttonList.setEnabled(False)
 
     #### Settings widgets
-    si = 0 # Settings (row) index
+    self._setSettingsWidgets()
+
+
+  def _setSettingsWidgets(self):
+    """
+    Creates all the settings widgets
+    """
+    si = 0  # Settings (row) index
     l = Label(self.settingsWidget, 'Name:', grid=(si, 0))
     self.sgNameEntryBox = LineEdit(self.settingsWidget, text='pca', grid=(si, 1))
     si += 1
@@ -407,17 +428,17 @@ class PcaModule(CcpnModule):
     si += 1
     l = Label(self.settingsWidget, 'Descale Components:', grid=(si, 0))
     self.descaleCheck = CheckBox(self.settingsWidget, checked=True, grid=(si, 1))
-    si +=1
-    l = Label(self.settingsWidget, 'Normalisation:', grid=(si,0))
-    self.normMethodPulldown = PulldownList(self.settingsWidget, callback=self._setNormalization, grid=(si,1))
+    si += 1
+    l = Label(self.settingsWidget, 'Normalisation:', grid=(si, 0))
+    self.normMethodPulldown = PulldownList(self.settingsWidget, callback=self._setNormalization, grid=(si, 1))
     self.normMethodPulldown.setData([PQN, TSA, none])
     si += 1
-    l = Label(self.settingsWidget, 'Centring:', grid=(si,0))
-    self.centMethodPulldown = PulldownList(self.settingsWidget, callback=self._setCentering, grid=(si,1))
+    l = Label(self.settingsWidget, 'Centring:', grid=(si, 0))
+    self.centMethodPulldown = PulldownList(self.settingsWidget, callback=self._setCentering, grid=(si, 1))
     self.centMethodPulldown.setData([mean, median, none])
     si += 1
-    l = Label(self.settingsWidget, 'Scaling:', grid=(si,0))
-    self.scalingMethodPulldown = PulldownList(self.settingsWidget, callback=self.setScaling,  grid=(si,1))
+    l = Label(self.settingsWidget, 'Scaling:', grid=(si, 0))
+    self.scalingMethodPulldown = PulldownList(self.settingsWidget, callback=self.setScaling, grid=(si, 1))
     self.scalingMethodPulldown.setData([pareto, variance, none])
     si += 1
     HLine(self.settingsWidget, grid=(si, 0), gridSpan=(0, 2), colour=getColours()[DIVIDER], height=5)
@@ -428,12 +449,11 @@ class PcaModule(CcpnModule):
     si += 1
     l = Label(self.settingsWidget, 'Centre:', grid=(si, 0))
     self.roiMethodPulldown = PulldownList(self.settingsWidget, callback=self._roiPresetCallBack, grid=(si, 1))
-    self.roiMethodPulldown.setData([mean, median, std], objects= [np.mean, np.median, np.std])
+    self.roiMethodPulldown.setData([mean, median, std], objects=[np.mean, np.median, np.std])
     si += 1
     l = Label(self.settingsWidget, '%:', grid=(si, 0))
-    self.roiPercValue = Spinbox(self.settingsWidget, value =10, grid=(si, 1))
+    self.roiPercValue = Spinbox(self.settingsWidget, value=10, grid=(si, 1))
     self.roiPercValue.valueChanged.connect(self._roiPresetCallBack)
-
 
   ########### Generic functions to 'talk' with the decomposition base class ############
 
@@ -445,6 +465,55 @@ class PcaModule(CcpnModule):
       if scoresDF is not None:
         if scoresDF.shape[0] > 1: #No point in plotting
           return scoresDF
+
+  def getVarianceResults(self):
+    """ gets the results from the base class decomposition """
+
+    if self.decomposition is not None:
+      varianceDF = self.decomposition.variance
+      if varianceDF is not None:
+        if varianceDF.shape[0] > 1: #No point in plotting
+          return varianceDF
+
+  ########### Create all widgets for each tab ############
+
+  def _setScatterTabWidgets(self, layoutParent):
+    ### Scatter Plot setup
+    self._scatterView = pg.GraphicsLayoutWidget()
+    self._scatterView.setBackground(BackgroundColour)
+    self._plotItem = self._scatterView.addPlot()
+    self._scatterViewbox = self._plotItem.vb
+    self._plotItem.setMenuEnabled(False)
+
+    self.scatterPlot = pg.ScatterPlotItem(size=10, pen=pg.mkPen(None), brush=pg.mkBrush(255, 255, 255, 120))
+    self.scatterPlot.sigClicked.connect(self._plotClicked)
+    self.roi = pg.ROI(*DefaultRoi, pen=ROIline)
+    self._setROIhandles()
+    self.roi.sigRegionChangeFinished.connect(self.getROIdata)
+    self.xLine = pg.InfiniteLine(angle=90, pos=0, pen=OriginAxes)
+    self.yLine = pg.InfiniteLine(angle=0, pos=0, pen=OriginAxes)
+
+    self._plotItem.addItem(self.scatterPlot)
+    self._plotItem.addItem(self.roi)
+    self._plotItem.addItem(self.xLine)
+    self._plotItem.addItem(self.yLine)
+    layoutParent.getLayout().addWidget(self._scatterView)
+
+  def _setVectorTabWidgets(self, layoutParent):
+    ### Scatter Plot setup
+    l = Label(layoutParent, 'Not implemented yet', grid=(0, 0))
+
+  
+  def _setVarianceTabWidgets(self, layoutParent):
+    ### Scatter Plot setup
+    self._varianceView = pg.GraphicsLayoutWidget()
+    self._varianceView.setBackground(BackgroundColour)
+    self.variancePlot = self._varianceView.addPlot()
+    self._varianceViewbox = self.variancePlot.vb
+    self.variancePlot.setMenuEnabled(False)
+    self.variancePlot.setLabel('bottom', 'PC component')
+    self.variancePlot.setLabel('left', 'Variance')
+    layoutParent.getLayout().addWidget(self._varianceView)
 
 
   ########### ROI box for scatter Plot ############
@@ -611,7 +680,7 @@ class PcaModule(CcpnModule):
     self.yAxisSelector.setData([])
 
   def _axisChanged(self, *args):
-    """callback from axis pulldowns """
+    """callback from axis pulldowns which will replot the scatter"""
     x = self.xAxisSelector.getText()
     y = self.yAxisSelector.getText()
     scores = self.getPcaResults()
@@ -620,6 +689,17 @@ class PcaModule(CcpnModule):
   def refreshPlot(self, ):
     self._setSourcesSelection()
 
+  ########### Variance Plot ############
+
+  def plotVariance(self, varianceDataFrame):
+    # scoresDF.insert(0,'Variance',self.explainedVariance_.values)
+    # scoresDF.insert(0,'#',np.arange(1,scoresDF.shape[0]+1))
+    if varianceDataFrame is not None:
+      x = np.arange(1,varianceDataFrame.shape[0]+1)
+      y = varianceDataFrame
+      self.variancePlot.plot(x, y, symbol='o', clear=True)
+    else:
+      self.variancePlot.clear()
 
 
   ########### Settings widgets callback  ############
@@ -643,6 +723,7 @@ class PcaModule(CcpnModule):
     self._setAxes(scores=self.getPcaResults())
     self._axisChanged()
     self._roiPresetCallBack()
+    self.plotVariance(varianceDataFrame=self.getVarianceResults())
 
   def _sourceListDroppedCallback(self, ll):
     if len(ll)>0:
