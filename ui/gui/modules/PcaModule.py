@@ -43,8 +43,13 @@ from ccpn.ui.gui.widgets.ListWidget import ListWidget
 from ccpn.ui.gui.widgets.PulldownList import PulldownList
 from ccpn.ui.gui.widgets.Spinbox import Spinbox
 from ccpn.ui.gui.widgets.CustomExportDialog import CustomExportDialog
+from ccpn.ui.gui.widgets.BarGraph import CustomViewBox
+from ccpn.ui.gui.lib.mouseEvents import \
+  leftMouse, shiftLeftMouse, controlLeftMouse, controlShiftLeftMouse, \
+  middleMouse, shiftMiddleMouse, controlMiddleMouse, controlShiftMiddleMouse, \
+  rightMouse, shiftRightMouse, controlRightMouse, controlShiftRightMouse
 from ccpn.ui.gui.guiSettings import autoCorrectHexColour, getColours, CCPNGLWIDGET_HEXBACKGROUND,\
-  GUISTRIP_PIVOT, DIVIDER, CCPNGLWIDGET_SELECTAREA, CCPNGLWIDGET_PICKAREA
+  GUISTRIP_PIVOT, DIVIDER, CCPNGLWIDGET_SELECTAREA
 from ccpn.ui.gui.widgets.SideBar import _openItemObject
 from ccpn.util.Colour import hexToRgb,rgbaRatioToHex
 from collections import OrderedDict
@@ -285,7 +290,8 @@ class Decomposition:
       raise NotImplementedError("Only pareto, unit variance and 'none' type scalings currently supported.")
     return data
 
-  def splitDataWithinRange(self, scores, xLabel, yLabel, minX, maxX, minY, maxY):
+  @staticmethod
+  def splitDataWithinRange(scores, xLabel, yLabel, minX, maxX, minY, maxY):
     """
     :param scores: dataframe with all scores
     :param xLabel: label1 , eg PC1
@@ -295,7 +301,7 @@ class Decomposition:
     :param minY: min value for Y
     :param maxY: max value for Y
     :return:  inners  dataframe like scores but containing only the values within the ranges  and
-              outers rest not included in inners
+              outers (rest) not included in inners
     """
 
     bools = scores[xLabel].between(minX, maxX, inclusive=True) & scores[yLabel].between(minY, maxY, inclusive=True)
@@ -373,6 +379,7 @@ class PcaModule(CcpnModule):
     self.mainWindow = mainWindow
     self.decomposition = None
     self._exportDialog = None
+    self.application = None
 
     if self.mainWindow: # without mainWindow will open only the Gui
       self.current = self.mainWindow.current
@@ -499,9 +506,11 @@ class PcaModule(CcpnModule):
     self._scatterView.setBackground(BackgroundColour)
     self._plotItem = self._scatterView.addPlot()
     self._scatterViewbox = self._plotItem.vb
+    self._addScatterSelectionBox()
     self._scatterViewbox.mouseClickEvent = self._scatterViewboxMouseClickEvent
-
+    self._scatterViewbox.mouseDragEvent = self._scatterMouseDragEvent
     self._plotItem.setMenuEnabled(False)
+
 
     self.scatterPlot = pg.ScatterPlotItem(size=10, pen=pg.mkPen(None), brush=pg.mkBrush(255, 255, 255, 120))
     self.scatterPlot.sigClicked.connect(self._plotClicked)
@@ -639,6 +648,103 @@ class PcaModule(CcpnModule):
     state['size'] = [xSize, ySize]
     self.roi.setState(state)
 
+  # selection box
+
+  def _addScatterSelectionBox(self):
+    self._scatterSelectionBox = QtWidgets.QGraphicsRectItem(0, 0, 1, 1)
+    self._scatterSelectionBox.setPen(pg.functions.mkPen((255, 0, 255), width=1))
+    self._scatterSelectionBox.setBrush(pg.functions.mkBrush(255, 100, 255, 100))
+    self._scatterSelectionBox.setZValue(1e9)
+    self._scatterViewbox.addItem(self._scatterSelectionBox, ignoreBounds=True)
+    self._scatterSelectionBox.hide()
+
+  def _updateScatterSelectionBox(self, p1:float, p2:float):
+    """
+    Updates drawing of selection box as mouse is moved.
+    """
+    vb = self._scatterViewbox
+    r = QtCore.QRectF(p1, p2)
+    r = vb.childGroup.mapRectFromParent(r)
+    self._scatterSelectionBox.setPos(r.topLeft())
+    self._scatterSelectionBox.resetTransform()
+    self._scatterSelectionBox.scale(r.width(), r.height())
+    self._scatterSelectionBox.show()
+
+  def _getScatterSelectionData(self, event):
+    vb = self._scatterViewbox
+    x1 = vb.mapSceneToView(event.buttonDownPos()).x()
+    x2 = vb.mapSceneToView(event.pos()).x()
+    y1 = vb.mapSceneToView(event.buttonDownPos()).y()
+    y2 = vb.mapSceneToView(event.pos()).y()
+    xm, xM = np.min([x1,x2]), np.max([x1,x2])
+    ym, yM = np.min([y1,y2]), np.max([y1,y2])
+    return [xm, xM, ym, yM]
+
+  def _scatterMouseDragEvent(self, event):
+    """
+    Re-implementation of PyQtGraph mouse drag event to allow custom actions off of different mouse
+    drag events. Same as spectrum Display. Check Spectrum Display View Box for more documentation.
+
+    """
+
+
+    if leftMouse(event):
+      # Left-drag: Panning of the view
+      pg.ViewBox.mouseDragEvent(self._scatterViewbox, event)
+    elif controlLeftMouse(event):
+      self._updateScatterSelectionBox(event.buttonDownPos(), event.pos())
+      if self.decomposition:
+        pts = self._getScatterSelectionData(event)
+        xl = PC + str(self.xAxisSelector.get())
+        yl = PC + str(self.yAxisSelector.get())
+        i, o = self.decomposition.splitDataWithinRange(self.getPcaResults(), xl, yl,*pts)
+        if i is not None:
+          objs = i.index
+          for obj in objs:
+            try:
+              if self.application:
+                addObjToCurrent = getattr(self.application.current, 'add'+obj.className)
+                addObjToCurrent(obj)
+            except:
+              pass
+    #   labels = [label for label in self.childGroup.childItems() if isinstance(label, CustomLabel)]
+    #   # Control(Cmd)+left drag: selects label
+    #   self.selectionBox.show()
+    #   for label in labels:
+    #     if int(label.pos().x()) in range(int(xStartPosition), int(xEndPosition)):
+    #       if self.inYRange(label.pos().y(), yEndPosition, yStartPosition, ):
+    #         if self.application is not None:
+    #           obj = label.data(int(label.pos().x()))
+    #           if obj:
+    #             try:
+    #               addObjToCurrent = getattr(self.application.current, 'add'+obj.className)
+    #               addObjToCurrent(obj)
+    #             except:
+    #               pass
+    #
+    #
+    #
+    #         # self.application.current.addNmrresidue(label.data(int(label.pos().x())))
+    #         # label.setSelected(True)
+    #
+    #
+      event.accept()
+      if not event.isFinish():
+        self._updateScatterSelectionBox(event.buttonDownPos(), event.pos())
+      #   self._resetBoxes()
+      else:
+        self._resetSelectionBox()
+
+
+    else:
+      self._resetSelectionBox()
+      event.ignore()
+
+  def _resetSelectionBox(self):
+    "Reset/Hide the boxes "
+    self._successiveClicks = None
+    self._scatterSelectionBox.hide()
+    self._scatterViewbox.rbScaleBox.hide()
 
   ########### PCA scatter Plot  ############
 
