@@ -49,10 +49,11 @@ from ccpn.ui.gui.lib.mouseEvents import \
   middleMouse, shiftMiddleMouse, controlMiddleMouse, controlShiftMiddleMouse, \
   rightMouse, shiftRightMouse, controlRightMouse, controlShiftRightMouse
 from ccpn.ui.gui.guiSettings import autoCorrectHexColour, getColours, CCPNGLWIDGET_HEXBACKGROUND,\
-  GUISTRIP_PIVOT, DIVIDER, CCPNGLWIDGET_SELECTAREA
+  GUISTRIP_PIVOT, DIVIDER, CCPNGLWIDGET_SELECTAREA, CCPNGLWIDGET_HIGHLIGHT
 from ccpn.ui.gui.widgets.SideBar import _openItemObject
 from ccpn.util.Colour import hexToRgb,rgbaRatioToHex
 from collections import OrderedDict
+from ccpn.core.lib.Notifiers import Notifier
 import os
 import shutil
 import numpy as np
@@ -91,6 +92,8 @@ variance = 'unit variance'
 # colours
 BackgroundColour = getColours()[CCPNGLWIDGET_HEXBACKGROUND]
 OriginAxes = pg.functions.mkPen(hexToRgb(getColours()[GUISTRIP_PIVOT]), width=1, style=QtCore.Qt.DashLine)
+SelectedPoint = pg.functions.mkPen(rgbaRatioToHex(*getColours()[CCPNGLWIDGET_HIGHLIGHT]), width=5)
+
 ROIline = rgbaRatioToHex(*getColours()[CCPNGLWIDGET_SELECTAREA])
 
 
@@ -381,12 +384,17 @@ class PcaModule(CcpnModule):
     self._exportDialog = None
     self.application = None
 
+
     if self.mainWindow: # without mainWindow will open only the Gui
       self.current = self.mainWindow.current
       self.application = self.mainWindow.application
       self.project = self.mainWindow.project
       self.decomposition = Decomposition(self.project)
       self.decomposition.auto = True
+
+      # notifiers
+      self._selectCurrentNmrResiduesNotifier = Notifier(self.current, [Notifier.CURRENT], targetName='spectra'
+                                                        ,onceOnly=True, callback=self._selectCurrentSpectrumNotifierCallback)
 
     ####  Main Widgets
 
@@ -427,6 +435,8 @@ class PcaModule(CcpnModule):
 
     #### Settings widgets
     self._setSettingsWidgets()
+
+    self._selectedObjs = []
 
 
 
@@ -509,6 +519,7 @@ class PcaModule(CcpnModule):
     self._addScatterSelectionBox()
     self._scatterViewbox.mouseClickEvent = self._scatterViewboxMouseClickEvent
     self._scatterViewbox.mouseDragEvent = self._scatterMouseDragEvent
+    self._scatterViewbox.scene().sigMouseMoved.connect(self.mouseMoved) #use this if you need the mouse Posit
     self._plotItem.setMenuEnabled(False)
 
 
@@ -669,16 +680,12 @@ class PcaModule(CcpnModule):
     self._scatterSelectionBox.resetTransform()
     self._scatterSelectionBox.scale(r.width(), r.height())
     self._scatterSelectionBox.show()
+    minX = r.topLeft().x()
+    minY = r.topLeft().y()
+    maxX = minX+r.width()
+    maxY = minY+r.height()
+    return [minX,maxX,minY,maxY]
 
-  def _getScatterSelectionData(self, event):
-    vb = self._scatterViewbox
-    x1 = vb.mapSceneToView(event.buttonDownPos()).x()
-    x2 = vb.mapSceneToView(event.pos()).x()
-    y1 = vb.mapSceneToView(event.buttonDownPos()).y()
-    y2 = vb.mapSceneToView(event.pos()).y()
-    xm, xM = np.min([x1,x2]), np.max([x1,x2])
-    ym, yM = np.min([y1,y2]), np.max([y1,y2])
-    return [xm, xM, ym, yM]
 
   def _scatterMouseDragEvent(self, event):
     """
@@ -686,59 +693,47 @@ class PcaModule(CcpnModule):
     drag events. Same as spectrum Display. Check Spectrum Display View Box for more documentation.
 
     """
-
-
     if leftMouse(event):
       # Left-drag: Panning of the view
+      self._resetSelectionBox()
+      self._selectedObjs = []
+      self._selectScatterPoints()
       pg.ViewBox.mouseDragEvent(self._scatterViewbox, event)
+
+
     elif controlLeftMouse(event):
       self._updateScatterSelectionBox(event.buttonDownPos(), event.pos())
-      if self.decomposition:
-        pts = self._getScatterSelectionData(event)
-        xl = PC + str(self.xAxisSelector.get())
-        yl = PC + str(self.yAxisSelector.get())
-        i, o = self.decomposition.splitDataWithinRange(self.getPcaResults(), xl, yl,*pts)
-        if i is not None:
-          objs = i.index
-          for obj in objs:
-            try:
-              if self.application:
-                addObjToCurrent = getattr(self.application.current, 'add'+obj.className)
-                addObjToCurrent(obj)
-            except:
-              pass
-    #   labels = [label for label in self.childGroup.childItems() if isinstance(label, CustomLabel)]
-    #   # Control(Cmd)+left drag: selects label
-    #   self.selectionBox.show()
-    #   for label in labels:
-    #     if int(label.pos().x()) in range(int(xStartPosition), int(xEndPosition)):
-    #       if self.inYRange(label.pos().y(), yEndPosition, yStartPosition, ):
-    #         if self.application is not None:
-    #           obj = label.data(int(label.pos().x()))
-    #           if obj:
-    #             try:
-    #               addObjToCurrent = getattr(self.application.current, 'add'+obj.className)
-    #               addObjToCurrent(obj)
-    #             except:
-    #               pass
-    #
-    #
-    #
-    #         # self.application.current.addNmrresidue(label.data(int(label.pos().x())))
-    #         # label.setSelected(True)
-    #
-    #
       event.accept()
       if not event.isFinish():
         self._updateScatterSelectionBox(event.buttonDownPos(), event.pos())
-      #   self._resetBoxes()
+        pts = self._getScatterSelectionData(event)
       else:
+        ## Here the event is finished.
+
+        pts = self._updateScatterSelectionBox(event.buttonDownPos(), event.pos())
+        if self.decomposition:
+          i, o = self.decomposition.splitDataWithinRange(self.getPcaResults(),
+                                                         *self._getSelectedAxesLabels(), *pts)
+          self._selectedObjs.extend(i.index)
+          self._selectScatterPoints()
         self._resetSelectionBox()
 
+          # if i is not None:
+          #   objs = i.index
+          #   self._selectedObjs |= set(objs)
+
+          # if self.application:
+          #   if i is not None:
+          #     objs = i.index
+          #     for obj in objs:
+          #       addObjToCurrent = getattr(self.application.current, 'add'+obj.className)
+          #       addObjToCurrent(obj)
 
     else:
       self._resetSelectionBox()
       event.ignore()
+
+
 
   def _resetSelectionBox(self):
     "Reset/Hide the boxes "
@@ -746,34 +741,74 @@ class PcaModule(CcpnModule):
     self._scatterSelectionBox.hide()
     self._scatterViewbox.rbScaleBox.hide()
 
+  def _getSelectedAxesLabels(self):
+    xl = PC + str(self.xAxisSelector.get())
+    yl = PC + str(self.yAxisSelector.get())
+    return [xl,yl]
+
+
+  def _selectScatterPoints(self, inners=None, outers=None):
+    # if inners is None and outers is None:
+    #   self.scatterPlot.clear()
+    #   self._selectedObjs = []
+    #   self.plotPCAscatterResults(self.getPcaResults(), *self._getSelectedAxesLabels(), highLight=self._selectedObjs)
+    #   return
+
+    self.scatterPlot.clear()
+    self.plotPCAscatterResults(self.getPcaResults(), *self._getSelectedAxesLabels(), highLight=self._selectedObjs)
+
+
+  def _getObjFromPoints(self, points=None):
+    if points is None:
+      points = self.scatterPlot.points()
+    df = pd.DataFrame(points, index = [point.data() for point in points], columns=['item'])
+    return df
+
+  from ccpn.util.decorators import profile
+  @profile
+  # @cached('scatterSelection',  maxItems=2000, )
+  def _selectCurrentSpectrumNotifierCallback(self, data):
+    print('@@')
+    import time
+    s = time.time()
+    if self.application:
+      pids = [v.pid for v in data.get('value')]
+      for point in self.scatterPlot.points():
+        obj = point.data()
+        if obj.pid in pids:
+          point.setPen(SelectedPoint)
+        else:
+          point.setPen(None)
+    e = time.time()
+    print('Time:' , e-s)
+
   ########### PCA scatter Plot  ############
 
 
-  def plotPCAscatterResults(self, dataFrame, xPC=1, yPC=2):
+  def plotPCAscatterResults(self, dataFrame, xAxisLabel='PC1', yAxisLabel='PC2', highLight=None):
     """
 
     :param dataFrame: in the format from the PCA Class
           index: Pid --> obj or str of pid
-          Column: #  --> serial
-          Column: variance --> explained variance
           Columns: PCx  x= 1 to the end. Eg. PC1, PC2, etc
     :return:  transform the dataFrame in the plottable data format and plot it on the scatterPlot
 
     """
-    xAxisLabel = 'PC'+str(xPC)
-    yAxisLabel = 'PC'+str(yPC)
+    if highLight is None:
+      highLight = self._selectedObjs
 
     if dataFrame is None:
       self.scatterPlot.clear()
       return
     spots = []
     for obj, row in dataFrame.iterrows():
-      dd = {'pos': [0, 0], 'data': 'pid', 'brush': pg.mkBrush(255, 255, 255, 120), 'symbol': 'o', 'size': 10, }
-
+      dd = {'pos': [0, 0], 'data': 'obj', 'brush': pg.mkBrush(255, 255, 255, 120), 'symbol': 'o', 'size': 10, 'pen':None}
       dd['pos'] = [row[xAxisLabel], row[yAxisLabel]]
       dd['data'] = obj
       if hasattr(obj, 'sliceColour'):
         dd['brush'] = pg.functions.mkBrush(hexToRgb(obj.sliceColour))
+      if obj in highLight:
+        dd['pen'] = SelectedPoint
       spots.append(dd)
     self._plotSpots(spots)
     self._plotItem.setLabel('bottom', xAxisLabel)
@@ -837,7 +872,7 @@ class PcaModule(CcpnModule):
     x = self.xAxisSelector.get()
     y = self.yAxisSelector.get()
     scores = self.getPcaResults()
-    self.plotPCAscatterResults(scores, xPC=x, yPC=y)
+    self.plotPCAscatterResults(scores, *self._getSelectedAxesLabels())
 
   def refreshPlot(self, ):
     self._setSourcesSelection()
@@ -865,7 +900,22 @@ class PcaModule(CcpnModule):
       self._raiseScatterContextMenu(event)
 
     elif event.button() == QtCore.Qt.LeftButton:
+      self._selectScatterPoints()
+      # if self.current:
+      #   try:
+      #     if all(isinstance(x.data(), Spectrum) for x in self.scatterPlot.points()):
+      #       self.current.spectra = []
+      #   except:
+      #     pass
       event.accept()
+
+  def mouseMoved(self, event):
+    position = event
+    if self._scatterViewbox.sceneBoundingRect().contains(position):
+      mousePoint = self._scatterViewbox.mapSceneToView(position)
+      x = mousePoint.x()
+      y =  mousePoint.y()
+
 
   def _showExportDialog(self, viewBox):
     """
@@ -1004,13 +1054,10 @@ if __name__ == '__main__':
   from ccpn.ui.gui.widgets.Application import TestApplication
   from ccpn.ui.gui.widgets.CcpnModuleArea import CcpnModuleArea
 
+  n = 300
+  pos = np.random.normal(size=(2, n), scale=1e-5)
+  spots = [{'pos': pos[:, i], 'data': 1} for i in range(n)] + [{'pos': [0, 0], 'data': 1}]
 
-
-
-  data = np.empty(5, dtype=[('x_pos', float), ('y_pos', float)])
-  x = data['x_pos'] = np.random.normal(size=5)
-  y = data['y_pos'] = np.random.normal(size=5) + data['x_pos'] * 0.1
-  objs = ['A','B','C','D','E']
 
   app = TestApplication()
   win = QtWidgets.QMainWindow()
@@ -1020,10 +1067,7 @@ if __name__ == '__main__':
   moduleArea.addModule(module)
 
 
-  n = 10
-  pos = np.random.normal(size=(5, n), scale=1e-5)
-  spots = [{'pos': pos[:, i], 'data': 1} for i in range(n)] + [{'pos': [0, 0], 'data': 1}]
-  module.setROI(-10,10,-10,10)
+  module.scatterPlot.addPoints(spots)
 
   win.setCentralWidget(moduleArea)
   win.resize(1000, 500)
