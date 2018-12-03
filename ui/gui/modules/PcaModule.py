@@ -315,14 +315,13 @@ class Decomposition:
 
     return  filteredInners, filteredOuters
 
-  def createSpectrumGroupFromScores(self, scoresDF, prefix=PREFIX):
+  def createSpectrumGroupFromScores(self, spectra, prefix=PREFIX):
     """
 
     :param outlinersDataFrame:
     :return: a spectrumGroup with the spectra which had outliners values
     """
 
-    spectra = list(scoresDF.index)
     # need to check if they are all spectra
     sgNames = [sg.name for sg in self.project.spectrumGroups if sg.name.startswith(prefix)]
     prefix += str(len(sgNames)+1)
@@ -696,8 +695,8 @@ class PcaModule(CcpnModule):
     if leftMouse(event):
       # Left-drag: Panning of the view
       self._resetSelectionBox()
-      self._selectedObjs = []
-      self._selectScatterPoints()
+      # self._selectedObjs = []
+      # self._selectScatterPoints()
       pg.ViewBox.mouseDragEvent(self._scatterViewbox, event)
 
 
@@ -706,7 +705,6 @@ class PcaModule(CcpnModule):
       event.accept()
       if not event.isFinish():
         self._updateScatterSelectionBox(event.buttonDownPos(), event.pos())
-        pts = self._getScatterSelectionData(event)
       else:
         ## Here the event is finished.
 
@@ -746,17 +744,35 @@ class PcaModule(CcpnModule):
     yl = PC + str(self.yAxisSelector.get())
     return [xl,yl]
 
+  def _clearScatterSelection(self):
+    self._selectedObjs = []
+    self._selectScatterPoints()
 
-  def _selectScatterPoints(self, inners=None, outers=None):
-    # if inners is None and outers is None:
-    #   self.scatterPlot.clear()
-    #   self._selectedObjs = []
-    #   self.plotPCAscatterResults(self.getPcaResults(), *self._getSelectedAxesLabels(), highLight=self._selectedObjs)
-    #   return
-
+  def _selectScatterPoints(self):
     self.scatterPlot.clear()
     self.plotPCAscatterResults(self.getPcaResults(), *self._getSelectedAxesLabels(), highLight=self._selectedObjs)
 
+  def _invertScatterSelection(self):
+    invs = [point.data() for point in self.scatterPlot.points() if point.data() not in self._selectedObjs]
+    self._selectedObjs= invs
+    self._selectScatterPoints()
+
+  def _selectFromROI(self):
+
+    scores = self.getPcaResults()
+    if scores is not None:
+      roi = self.getROIdata()
+      i,o = self.decomposition.splitDataWithinRange(scores, *self._getSelectedAxesLabels(), *roi)
+      if i is not None:
+        self._selectedObjs = i.index
+        self._selectScatterPoints()
+
+
+  def _createGroupSelection(self):
+    try:
+      self.decomposition.createSpectrumGroupFromScores(self._selectedObjs)
+    except:
+      getLogger().warn('Impossible to create Groups')
 
   def _getObjFromPoints(self, points=None):
     if points is None:
@@ -889,9 +905,9 @@ class PcaModule(CcpnModule):
       roi = self.getROIdata()
       i,o = self.decomposition.splitDataWithinRange(scores, xl, yl, *roi)
       if inside:
-        self.decomposition.createSpectrumGroupFromScores(i)
+        self.decomposition.createSpectrumGroupFromScores(list(i.index))
       else:
-        self.decomposition.createSpectrumGroupFromScores(o)
+        self.decomposition.createSpectrumGroupFromScores(list(i.index))
 
   def _scatterViewboxMouseClickEvent(self, event):
 
@@ -932,6 +948,25 @@ class PcaModule(CcpnModule):
 
     self._scatterContextMenu = Menu('', None, isFloatWidget=True)
     self._scatterContextMenu.addAction('Reset View', self._plotItem.autoRange)
+    self._scatterContextMenu.addSeparator()
+
+    # Selection
+    self.resetSelectionAction = QtGui.QAction("Clear selection", self,
+                                              triggered=self._clearScatterSelection)
+    self._scatterContextMenu.addAction(self.resetSelectionAction)
+
+    self.invertSelectionAction = QtGui.QAction("Invert selection", self,
+                                              triggered=self._invertScatterSelection)
+    self._scatterContextMenu.addAction(self.invertSelectionAction)
+
+    self.groupSelectionAction = QtGui.QAction("Selected from ROI", self,
+                                              triggered=self._selectFromROI)
+    self._scatterContextMenu.addAction(self.groupSelectionAction)
+    self._scatterContextMenu.addSeparator()
+
+    self.groupSelectionAction = QtGui.QAction("Create Group from selection", self,
+                                           triggered=self._createGroupSelection)
+    self._scatterContextMenu.addAction(self.groupSelectionAction)
     self._scatterContextMenu.addSeparator()
 
     # ROI
