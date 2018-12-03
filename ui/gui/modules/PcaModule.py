@@ -466,8 +466,9 @@ class PcaModule(CcpnModule):
     HLine(self.settingsWidget, grid=(si, 0), gridSpan=(0, 2), colour=getColours()[DIVIDER], height=5)
 
     l = Label(self.settingsWidget, 'ROI:', grid=(si, 0))
-    self.roiCheckbox = CheckBox(self.settingsWidget, checked=True, callback=self._toggleROI, grid=(si, 1))
+    self.roiCheckbox = CheckBox(self.settingsWidget, checked=False, callback=self._toggleROI, grid=(si, 1))
     self._toggleROI()
+
     si += 1
     l = Label(self.settingsWidget, 'Centre:', grid=(si, 0))
     self.roiMethodPulldown = PulldownList(self.settingsWidget, callback=self._roiPresetCallBack, grid=(si, 1))
@@ -555,7 +556,7 @@ class PcaModule(CcpnModule):
     self.vectorsPlot.setLabel('bottom', 'PC component')
     layoutParent.getLayout().addWidget(self._vectorsView)
 
-    self.xVectorSelector = Spinbox(layoutParent, prefix='PC', min=1, grid=(1, 0))
+    self.xVectorSelector = Spinbox(layoutParent, prefix='PC', grid=(1, 0))
     self.xVectorSelector.valueChanged.connect(self._xVectorSelectorChanged)
 
 
@@ -774,6 +775,12 @@ class PcaModule(CcpnModule):
     except:
       getLogger().warn('Impossible to create Groups')
 
+  def _openSelected(self):
+    try:
+      _openItemObject(self.mainWindow, self._selectedObjs)
+    except:
+      getLogger().warn('Impossible to create Groups')
+
   def _getObjFromPoints(self, points=None):
     if points is None:
       points = self.scatterPlot.points()
@@ -959,26 +966,15 @@ class PcaModule(CcpnModule):
                                               triggered=self._invertScatterSelection)
     self._scatterContextMenu.addAction(self.invertSelectionAction)
 
-    self.groupSelectionAction = QtGui.QAction("Selected from ROI", self,
-                                              triggered=self._selectFromROI)
-    self._scatterContextMenu.addAction(self.groupSelectionAction)
-    self._scatterContextMenu.addSeparator()
 
     self.groupSelectionAction = QtGui.QAction("Create Group from selection", self,
                                            triggered=self._createGroupSelection)
+
     self._scatterContextMenu.addAction(self.groupSelectionAction)
-    self._scatterContextMenu.addSeparator()
+    self._openSelectedAction = QtGui.QAction("Open selected", self,
+                                              triggered=self._openSelected)
 
-    # ROI
-    self.roiMouseAction = QtGui.QAction("ROI", self, triggered=self._roiMouseActionCallBack, checkable=True)
-    self.roiMouseAction.setChecked(self.roiCheckbox.get())
-    self._scatterContextMenu.addAction(self.roiMouseAction)
-
-    self.groupInRoiAction = QtGui.QAction("Create Group from inside ROI", self, triggered=self._createGroupFromROI)
-    self.groupOutRoiAction = QtGui.QAction("Create Group from outside ROI", self, triggered=partial(self._createGroupFromROI, False))
-    self._scatterContextMenu.addAction(self.groupInRoiAction)
-    self._scatterContextMenu.addAction(self.groupOutRoiAction)
-
+    self._scatterContextMenu.addAction(self._openSelectedAction)
     self._scatterContextMenu.addSeparator()
 
     self._scatterContextMenu.addSeparator()
@@ -1006,6 +1002,7 @@ class PcaModule(CcpnModule):
     if vectorsDataFrame is not None:
       vMax = vectorsDataFrame.shape[0]
       self.xVectorSelector.set(1)
+      self.xVectorSelector.setMinimum(1)
       self.xVectorSelector.setMaximum(vMax)
 
   def _xVectorSelectorChanged(self, value):
