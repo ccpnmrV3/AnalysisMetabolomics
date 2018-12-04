@@ -443,8 +443,11 @@ class PcaModule(CcpnModule):
     self._setSettingsWidgets()
 
     self._selectedObjs = [] # This list is used to set the current PCAcomponent.
-                            # The components are extended in a list for speeding up the selections are reducing the notifier load.
-
+                            # The components are extended in a list for speeding up the multiSelections and reducing the notifier load.
+                            # This will also allow selection if current doesn't exist, e.g. if this module is used as stand alone GUI
+                            # for plotting.
+    if self.current:
+      self._selectedObjs = list(self.current.pcaComponents)
 
 
   def _setSettingsWidgets(self):
@@ -772,7 +775,8 @@ class PcaModule(CcpnModule):
 
   def _selectCurrentPCAcompNotifierCallback(self, data):
     """ called when a PCA components gets in current"""
-    self.plotPCAscatterResults(self.getPcaResults(), *self._getSelectedAxesLabels(), highLight=self.current.pcaComponents)
+    self._selectedObjs = list(self.current.pcaComponents)
+    self.plotPCAscatterResults(self.getPcaResults(), *self._getSelectedAxesLabels(), highLight=self._selectedObjs)
 
   ########### PCA scatter Plot related  ############
 
@@ -866,7 +870,7 @@ class PcaModule(CcpnModule):
 
   def _axisChanged(self, *args):
     """callback from axis pulldowns which will replot the scatter"""
-    self.plotPCAscatterResults(self.getPcaResults(), *self._getSelectedAxesLabels())
+    self.plotPCAscatterResults(self.getPcaResults(), *self._getSelectedAxesLabels(), highLight=self._selectedObjs)
 
   def refreshPlots(self):
     """ Refreshes all module by resetting the sources"""
