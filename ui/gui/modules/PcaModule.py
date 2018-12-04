@@ -99,7 +99,7 @@ variance = 'unit variance'
 # colours
 BackgroundColour = getColours()[CCPNGLWIDGET_HEXBACKGROUND]
 OriginAxes = pg.functions.mkPen(hexToRgb(getColours()[GUISTRIP_PIVOT]), width=1, style=QtCore.Qt.DashLine)
-SelectedPoint = pg.functions.mkPen(rgbaRatioToHex(*getColours()[CCPNGLWIDGET_HIGHLIGHT]), width=5)
+SelectedPoint = pg.functions.mkPen(rgbaRatioToHex(*getColours()[CCPNGLWIDGET_HIGHLIGHT]), width=4)
 
 ROIline = rgbaRatioToHex(*getColours()[CCPNGLWIDGET_SELECTAREA])
 
@@ -389,7 +389,7 @@ class PcaModule(CcpnModule):
     self.decomposition = None
     self._exportDialog = None
     self.application = None
-
+    self.current = None
 
     if self.mainWindow: # without mainWindow will open only the Gui
       self.current = self.mainWindow.current
@@ -535,7 +535,9 @@ class PcaModule(CcpnModule):
     self._plotItem.setMenuEnabled(False)
 
     self.scatterPlot = pg.ScatterPlotItem(size=10, pen=pg.mkPen(None), brush=pg.mkBrush(255, 255, 255, 120))
-    self.scatterPlot.sigClicked.connect(self._plotClicked)
+    # self.scatterPlot.sigClicked.connect(self._plotClicked)
+    self.scatterPlot.mouseClickEvent = self._scatterMouseClickEvent
+    self.scatterPlot.mouseDoubleClickEvent = self._scatterMouseDoubleClickEvent
     self.roi = pg.ROI(*DefaultRoi, pen=ROIline)
     self._setROIhandles()
     self.roi.sigRegionChangeFinished.connect(self.getROIdata)
@@ -691,6 +693,49 @@ class PcaModule(CcpnModule):
     maxY = minY+r.height()
     return [minX,maxX,minY,maxY]
 
+  def _scatterMouseDoubleClickEvent(self, event):
+    """
+    e-implementation of scatter double click event
+    """
+    if self.mainWindow:
+      _openItemObject(self.mainWindow, self.current.pcaComponents)
+
+
+  def _scatterMouseClickEvent(self, ev):
+    """
+      Re-implementation of scatter mouse event to allow selections of a single point
+    """
+    plot = self.scatterPlot
+    pts = plot.pointsAt(ev.pos())
+    obj = None
+    if len(pts) > 0:
+      point = pts[0]
+      obj = point.data()
+
+    if leftMouse(ev):
+      if obj:
+        self._selectedObjs = [obj]
+        if self.current:
+          self.current.pcaComponents = self._selectedObjs
+        ev.accept()
+      else:
+        # "no spots, clear selection"
+        self._selectedObjs = []
+        if self.current:
+          self.current.pcaComponents = self._selectedObjs
+        ev.accept()
+
+    elif controlLeftMouse(ev):
+      # Control-left-click;  add to selection
+      self._selectedObjs.extend([obj])
+      if self.current:
+        self.current.pcaComponents = self._selectedObjs
+      ev.accept()
+
+    else:
+        ev.ignore()
+
+
 
   def _scatterMouseDragEvent(self, event):
     """
@@ -727,7 +772,6 @@ class PcaModule(CcpnModule):
     self._scatterViewbox.rbScaleBox.hide()
 
 
-
   def _clearScatterSelection(self):
     self._selectedObjs = []
     self._selectScatterPoints()
@@ -735,9 +779,9 @@ class PcaModule(CcpnModule):
   def _selectScatterPoints(self):
     self.scatterPlot.clear()
     if self.current:
-      self.current.pcaComponents = self._selectedObjs
-    else: # do selection same. E.g. if used as stand alone module
-      self.plotPCAscatterResults(self.getPcaResults(), *self._getSelectedAxesLabels(), highLight=self._selectedObjs)
+      self.current.pcaComponents = self._selectedObjs # does selection through notifier
+    else: # does still selection. E.g. if used as stand alone module
+      self.plotPCAscatterResults(self.getPcaResults(), *self._getSelectedAxesLabels(), selectedObjs=self._selectedObjs)
 
   def _invertScatterSelection(self):
     invs = [point.data() for point in self.scatterPlot.points() if point.data() not in self._selectedObjs]
@@ -777,7 +821,7 @@ class PcaModule(CcpnModule):
   def _selectCurrentPCAcompNotifierCallback(self, data):
     """ called when a PCA components gets in current"""
     self._selectedObjs = list(self.current.pcaComponents)
-    self.plotPCAscatterResults(self.getPcaResults(), *self._getSelectedAxesLabels(), highLight=self._selectedObjs)
+    self.plotPCAscatterResults(self.getPcaResults(), *self._getSelectedAxesLabels(), selectedObjs=self._selectedObjs)
 
   ########### PCA scatter Plot related  ############
 
@@ -786,17 +830,17 @@ class PcaModule(CcpnModule):
     yl = PC + str(self.yAxisSelector.get())
     return [xl,yl]
 
-  def plotPCAscatterResults(self, dataFrame, xAxisLabel='PC1', yAxisLabel='PC2', highLight=None):
+  def plotPCAscatterResults(self, dataFrame, xAxisLabel='PC1', yAxisLabel='PC2', selectedObjs=None):
     """
 
     :param dataFrame: in the format from the PCA Class
-          index: Pid --> obj or str of pid
-          Columns: PCx  x= 1 to the end. Eg. PC1, PC2, etc
-    :return:  transform the dataFrame in the plottable data format and plot it on the scatterPlot
+          index: Pid --> obj
+          Columns: PCx  x= 1 to the end. Eg. PC1, PC2, etc values: floats
+    :return:  transform the dataFrame in the (pyqtGraph) plottable data format and plot it on the scatterPlot
 
     """
-    if highLight is None:
-      highLight = self._selectedObjs
+    if selectedObjs is None:
+      selectedObjs = self._selectedObjs
 
     if dataFrame is None:
       self.scatterPlot.clear()
@@ -806,9 +850,9 @@ class PcaModule(CcpnModule):
       dd = {'pos': [0, 0], 'data': 'obj', 'brush': pg.mkBrush(255, 255, 255, 120), 'symbol': 'o', 'size': 10, 'pen':None}
       dd['pos'] = [row[xAxisLabel], row[yAxisLabel]]
       dd['data'] = obj
-      if hasattr(obj, 'sliceColour'):
+      if hasattr(obj, 'sliceColour'): # colour from the spectrum. The only CCPN obj implemeted so far
         dd['brush'] = pg.functions.mkBrush(hexToRgb(obj.sliceColour))
-      if obj in highLight:
+      if obj in selectedObjs:
         dd['pen'] = SelectedPoint
       spots.append(dd)
     self._plotSpots(spots)
@@ -818,7 +862,7 @@ class PcaModule(CcpnModule):
 
   def _plotSpots(self, spots):
     """
-    plots the data in the format requested by the ScatterPlot widget
+    plots the data in the format requested by the pg.ScatterPlot widget
     :param spots: a list of dict with these Key:value
                 [{
                 'pos': [0, 0], # [x,y] which will be the single spot position
@@ -833,19 +877,6 @@ class PcaModule(CcpnModule):
     self.scatterPlot.clear()
     self.scatterPlot.addPoints(spots)
 
-  def _plotClicked(self, plot, points):
-    """
-    :param plot:
-    :param points: all points under the mouse click.
-    :return:
-    """
-    if len(points)>1:
-      return
-    for point in points: # not sure if we want open the same. Maybe up to a limit of n?
-      # point.setPen('b', width=1)
-      obj = point.data()
-      if obj is not None:
-        _openItemObject(self.mainWindow, [obj])
 
   def _setAxes(self, scores):
     """ Set X and Y axes from the PCA scores dataFrame.
@@ -871,7 +902,7 @@ class PcaModule(CcpnModule):
 
   def _axisChanged(self, *args):
     """callback from axis pulldowns which will replot the scatter"""
-    self.plotPCAscatterResults(self.getPcaResults(), *self._getSelectedAxesLabels(), highLight=self._selectedObjs)
+    self.plotPCAscatterResults(self.getPcaResults(), *self._getSelectedAxesLabels(), selectedObjs=self._selectedObjs)
 
   def refreshPlots(self):
     """ Refreshes all module by resetting the sources"""
@@ -893,14 +924,10 @@ class PcaModule(CcpnModule):
         self.decomposition.createSpectrumGroupFromScores(list(i.index))
 
   def _scatterViewboxMouseClickEvent(self, event):
-
+    """ click on scatter viewBox. The parent of scatterPlot. Opens the context menu at any point. """
     if event.button() == QtCore.Qt.RightButton:
       event.accept()
       self._raiseScatterContextMenu(event)
-
-    elif event.button() == QtCore.Qt.LeftButton:
-      self._clearScatterSelection()
-      event.accept()
 
   def mouseMoved(self, event):
     """
@@ -924,6 +951,13 @@ class PcaModule(CcpnModule):
     if self._exportDialog is None:
       self._exportDialog = CustomExportDialog(viewBox.scene(), titleName='Exporting')
     self._exportDialog.show(viewBox)
+
+  def _toggleSelectionOptions(self):
+    v = (len(self._selectedObjs)>0)
+    self.resetSelectionAction.setEnabled(v)
+    self.invertSelectionAction.setEnabled(v)
+    self.groupSelectionAction.setEnabled(v)
+    self._openSelectedAction.setEnabled(v)
 
   def _raiseScatterContextMenu(self, ev):
 
@@ -954,6 +988,7 @@ class PcaModule(CcpnModule):
     self._scatterContextMenu.addSeparator()
     self.exportAction = QtGui.QAction("Export image...", self, triggered=partial(self._showExportDialog, self._scatterViewbox))
     self._scatterContextMenu.addAction(self.exportAction)
+    self._toggleSelectionOptions()
 
     self._scatterContextMenu.exec_(ev.screenPos().toPoint())
 
