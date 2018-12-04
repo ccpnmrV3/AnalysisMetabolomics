@@ -1,5 +1,11 @@
 """Module Documentation here
 
+
+
+Warning: this module can be overloaded with too many operations and plots hierarchies from PyQtGraph.
+Could be beneficial to split in more classes or custom subclasses.
+
+
 """
 #=========================================================================================
 # Licence, Reference and Credits
@@ -54,6 +60,7 @@ from ccpn.ui.gui.widgets.SideBar import _openItemObject
 from ccpn.util.Colour import hexToRgb,rgbaRatioToHex
 from collections import OrderedDict
 from ccpn.core.lib.Notifiers import Notifier
+from ccpn.framework.Current import PCAcompontents
 import os
 import shutil
 import numpy as np
@@ -392,8 +399,8 @@ class PcaModule(CcpnModule):
       self.decomposition.auto = True
 
       # notifiers
-      self._selectCurrentNmrResiduesNotifier = Notifier(self.current, [Notifier.CURRENT], targetName='spectra'
-                                                        ,onceOnly=True, callback=self._selectCurrentSpectrumNotifierCallback)
+      self._selectPCAcompNotifier = Notifier(self.current, [Notifier.CURRENT], targetName=PCAcompontents
+                                             , onceOnly=True, callback=self._selectCurrentPCAcompNotifierCallback)
 
     ####  Main Widgets
 
@@ -435,7 +442,8 @@ class PcaModule(CcpnModule):
     #### Settings widgets
     self._setSettingsWidgets()
 
-    self._selectedObjs = []
+    self._selectedObjs = [] # This list is used to set the current PCAcomponent.
+                            # The components are extended in a list for speeding up the selections are reducing the notifier load.
 
 
 
@@ -522,7 +530,6 @@ class PcaModule(CcpnModule):
     self._scatterViewbox.scene().sigMouseMoved.connect(self.mouseMoved) #use this if you need the mouse Posit
     self._plotItem.setMenuEnabled(False)
 
-
     self.scatterPlot = pg.ScatterPlotItem(size=10, pen=pg.mkPen(None), brush=pg.mkBrush(255, 255, 255, 120))
     self.scatterPlot.sigClicked.connect(self._plotClicked)
     self.roi = pg.ROI(*DefaultRoi, pen=ROIline)
@@ -538,13 +545,10 @@ class PcaModule(CcpnModule):
     layoutParent.getLayout().addWidget(self._scatterView)
 
     f = Frame(layoutParent, setLayout=True, grid=(1,0))
-    self.yAxisSelector = Spinbox(f, prefix='Y: PC', min=1, grid=(0, 0))
-    self.xAxisSelector = Spinbox(f, prefix='X: PC', min=1, grid=(0, 1))
+    self.xAxisSelector = Spinbox(f, prefix='X: PC', min=1, grid=(0, 0))
+    self.yAxisSelector = Spinbox(f, prefix='Y: PC', min=1, grid=(0, 1))
     self.yAxisSelector.valueChanged.connect(self._axisChanged)
     self.xAxisSelector.valueChanged.connect(self._axisChanged)
-
-
-
 
   def _setVectorTabWidgets(self, layoutParent):
     ### Scatter Plot setup
@@ -553,13 +557,10 @@ class PcaModule(CcpnModule):
     self.vectorsPlot = self._vectorsView.addPlot()
     self._vectorsViewbox = self.vectorsPlot.vb
     self.vectorsPlot.setMenuEnabled(False)
-    self.vectorsPlot.setLabel('bottom', 'PC component')
+    self.vectorsPlot.setLabel('bottom', 'Points')
     layoutParent.getLayout().addWidget(self._vectorsView)
-
     self.xVectorSelector = Spinbox(layoutParent, prefix='PC', grid=(1, 0))
     self.xVectorSelector.valueChanged.connect(self._xVectorSelectorChanged)
-
-
 
   def _setVarianceTabWidgets(self, layoutParent):
     ### Scatter Plot setup
@@ -659,7 +660,7 @@ class PcaModule(CcpnModule):
     state['size'] = [xSize, ySize]
     self.roi.setState(state)
 
-  # selection box
+  ## Scatter Selection box
 
   def _addScatterSelectionBox(self):
     self._scatterSelectionBox = QtWidgets.QGraphicsRectItem(0, 0, 1, 1)
@@ -694,21 +695,15 @@ class PcaModule(CcpnModule):
 
     """
     if leftMouse(event):
-      # Left-drag: Panning of the view
-      self._resetSelectionBox()
-      # self._selectedObjs = []
-      # self._selectScatterPoints()
       pg.ViewBox.mouseDragEvent(self._scatterViewbox, event)
-
 
     elif controlLeftMouse(event):
       self._updateScatterSelectionBox(event.buttonDownPos(), event.pos())
       event.accept()
       if not event.isFinish():
         self._updateScatterSelectionBox(event.buttonDownPos(), event.pos())
-      else:
-        ## Here the event is finished.
 
+      else: ## the event is finished.
         pts = self._updateScatterSelectionBox(event.buttonDownPos(), event.pos())
         if self.decomposition:
           i, o = self.decomposition.splitDataWithinRange(self.getPcaResults(),
@@ -717,22 +712,9 @@ class PcaModule(CcpnModule):
           self._selectScatterPoints()
         self._resetSelectionBox()
 
-          # if i is not None:
-          #   objs = i.index
-          #   self._selectedObjs |= set(objs)
-
-          # if self.application:
-          #   if i is not None:
-          #     objs = i.index
-          #     for obj in objs:
-          #       addObjToCurrent = getattr(self.application.current, 'add'+obj.className)
-          #       addObjToCurrent(obj)
-
     else:
       self._resetSelectionBox()
       event.ignore()
-
-
 
   def _resetSelectionBox(self):
     "Reset/Hide the boxes "
@@ -740,10 +722,7 @@ class PcaModule(CcpnModule):
     self._scatterSelectionBox.hide()
     self._scatterViewbox.rbScaleBox.hide()
 
-  def _getSelectedAxesLabels(self):
-    xl = PC + str(self.xAxisSelector.get())
-    yl = PC + str(self.yAxisSelector.get())
-    return [xl,yl]
+
 
   def _clearScatterSelection(self):
     self._selectedObjs = []
@@ -751,7 +730,10 @@ class PcaModule(CcpnModule):
 
   def _selectScatterPoints(self):
     self.scatterPlot.clear()
-    self.plotPCAscatterResults(self.getPcaResults(), *self._getSelectedAxesLabels(), highLight=self._selectedObjs)
+    if self.current:
+      self.current.pcaComponents = self._selectedObjs
+    else: # do selection same. E.g. if used as stand alone module
+      self.plotPCAscatterResults(self.getPcaResults(), *self._getSelectedAxesLabels(), highLight=self._selectedObjs)
 
   def _invertScatterSelection(self):
     invs = [point.data() for point in self.scatterPlot.points() if point.data() not in self._selectedObjs]
@@ -770,10 +752,11 @@ class PcaModule(CcpnModule):
 
 
   def _createGroupSelection(self):
-    try:
+    """ Create groups from selection. Implemented only for Spectrum Group """
+    if all(isinstance(x, Spectrum) for x in self._selectedObjs):
       self.decomposition.createSpectrumGroupFromScores(self._selectedObjs)
-    except:
-      getLogger().warn('Impossible to create Groups')
+    else:
+      getLogger().warn('Impossible to create groups. This functionality works only with spectra')
 
   def _openSelected(self):
     try:
@@ -787,26 +770,16 @@ class PcaModule(CcpnModule):
     df = pd.DataFrame(points, index = [point.data() for point in points], columns=['item'])
     return df
 
-  from ccpn.util.decorators import profile
-  @profile
-  # @cached('scatterSelection',  maxItems=2000, )
-  def _selectCurrentSpectrumNotifierCallback(self, data):
-    print('@@')
-    import time
-    s = time.time()
-    if self.application:
-      pids = [v.pid for v in data.get('value')]
-      for point in self.scatterPlot.points():
-        obj = point.data()
-        if obj.pid in pids:
-          point.setPen(SelectedPoint)
-        else:
-          point.setPen(None)
-    e = time.time()
-    print('Time:' , e-s)
+  def _selectCurrentPCAcompNotifierCallback(self, data):
+    """ called when a PCA components gets in current"""
+    self.plotPCAscatterResults(self.getPcaResults(), *self._getSelectedAxesLabels(), highLight=self.current.pcaComponents)
 
-  ########### PCA scatter Plot  ############
+  ########### PCA scatter Plot related  ############
 
+  def _getSelectedAxesLabels(self):
+    xl = PC + str(self.xAxisSelector.get())
+    yl = PC + str(self.yAxisSelector.get())
+    return [xl,yl]
 
   def plotPCAscatterResults(self, dataFrame, xAxisLabel='PC1', yAxisLabel='PC2', highLight=None):
     """
@@ -883,23 +856,21 @@ class PcaModule(CcpnModule):
     else:
       self.scatterPlot.clear()
 
-  def _clearPlot(self):
-
+  def _clearPlots(self):
+    """ Clear the scatter plot and the decomposition sources. """
     self.scatterPlot.clear()
+    self.vectorsPlot.clear()
+    self.variancePlot.clear()
     self.scatterPlot.viewTransformChanged()
     self.decomposition.sources = []
 
-
   def _axisChanged(self, *args):
     """callback from axis pulldowns which will replot the scatter"""
-    x = self.xAxisSelector.get()
-    y = self.yAxisSelector.get()
-    scores = self.getPcaResults()
-    self.plotPCAscatterResults(scores, *self._getSelectedAxesLabels())
+    self.plotPCAscatterResults(self.getPcaResults(), *self._getSelectedAxesLabels())
 
-  def refreshPlot(self, ):
+  def refreshPlots(self):
+    """ Refreshes all module by resetting the sources"""
     self._setSourcesSelection()
-
 
   def _createGroupFromROI(self, inside=True):
 
@@ -923,30 +894,28 @@ class PcaModule(CcpnModule):
       self._raiseScatterContextMenu(event)
 
     elif event.button() == QtCore.Qt.LeftButton:
-      self._selectScatterPoints()
-      # if self.current:
-      #   try:
-      #     if all(isinstance(x.data(), Spectrum) for x in self.scatterPlot.points()):
-      #       self.current.spectra = []
-      #   except:
-      #     pass
+      self._clearScatterSelection()
       event.accept()
 
   def mouseMoved(self, event):
-    position = event
-    if self._scatterViewbox.sceneBoundingRect().contains(position):
-      mousePoint = self._scatterViewbox.mapSceneToView(position)
-      x = mousePoint.x()
-      y =  mousePoint.y()
+    """
+    use this if you need for example display the mouse coords on display
+    :param event:
+    :return:
+    """
+    pass
+    # position = event
+    # if self._scatterViewbox.sceneBoundingRect().contains(position):
+    #   mousePoint = self._scatterViewbox.mapSceneToView(position)
+    #   x = mousePoint.x()
+    #   y =  mousePoint.y()
 
 
   def _showExportDialog(self, viewBox):
     """
-
     :param viewBox: the viewBox obj for the selected plot
     :return:
     """
-
     if self._exportDialog is None:
       self._exportDialog = CustomExportDialog(viewBox.scene(), titleName='Exporting')
     self._exportDialog.show(viewBox)
@@ -1026,13 +995,13 @@ class PcaModule(CcpnModule):
     """
 
     if len(self.sourceList.getSelectedTexts()) == 0:  # if nothing selected, then do nothing
-      self._clearPlot()
+      self._clearPlots()
       return
 
     elif len(self.sourceList.getSelectedTexts()) == 1:  # only SG is allowed a single selection
       obj = self.project.getByPid(self.sourceList.getSelectedTexts()[0])
       if not isinstance(obj, SpectrumGroup):
-        self._clearPlot()
+        self._clearPlots()
         return
 
     self.decomposition.sources = self.sourceList.getSelectedTexts()
@@ -1053,14 +1022,14 @@ class PcaModule(CcpnModule):
       self.normMethodPulldown.select(normalization)
       self.decomposition.normalization = normalization
       if self.getPcaResults() is not None:
-        self.refreshPlot()
+        self.refreshPlots()
 
   def _setCentering(self, centering):
     if self.decomposition:
       self.centMethodPulldown.select(centering)
       self.decomposition.centering = centering
       if self.getPcaResults() is not None:
-        self.refreshPlot()
+        self.refreshPlots()
 
   def setScaling(self, scaling):
     if self.decomposition:
@@ -1068,7 +1037,7 @@ class PcaModule(CcpnModule):
       self.scalingMethodPulldown.select(scaling)
       self.decomposition.scaling = scaling
       if self.getPcaResults() is not None:
-        self.refreshPlot()
+        self.refreshPlots()
 
 
   def saveOutput(self):
