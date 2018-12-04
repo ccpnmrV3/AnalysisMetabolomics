@@ -475,20 +475,22 @@ class PcaModule(CcpnModule):
     self.scalingMethodPulldown = PulldownList(self.settingsWidget, callback=self.setScaling, grid=(si, 1))
     self.scalingMethodPulldown.setData([pareto, variance, none])
     si += 1
-    HLine(self.settingsWidget, grid=(si, 0), gridSpan=(0, 2), colour=getColours()[DIVIDER], height=5)
 
-    l = Label(self.settingsWidget, 'ROI:', grid=(si, 0))
-    self.roiCheckbox = CheckBox(self.settingsWidget, checked=False, callback=self._toggleROI, grid=(si, 1))
-    self._toggleROI()
-
-    si += 1
-    l = Label(self.settingsWidget, 'Centre:', grid=(si, 0))
-    self.roiMethodPulldown = PulldownList(self.settingsWidget, callback=self._roiPresetCallBack, grid=(si, 1))
-    self.roiMethodPulldown.setData([mean, median, std], objects=[np.mean, np.median, np.std])
-    si += 1
-    l = Label(self.settingsWidget, '%:', grid=(si, 0))
-    self.roiPercValue = Spinbox(self.settingsWidget, value=10, min=1, grid=(si, 1))
-    self.roiPercValue.valueChanged.connect(self._roiPresetCallBack)
+    # ROI Not in Use but working code
+    # HLine(self.settingsWidget, grid=(si, 0), gridSpan=(0, 2), colour=getColours()[DIVIDER], height=5)
+    #
+    # l = Label(self.settingsWidget, 'ROI:', grid=(si, 0))
+    # self.roiCheckbox = CheckBox(self.settingsWidget, checked=False, callback=self._toggleROI, grid=(si, 1))
+    # self._toggleROI()
+    #
+    # si += 1
+    # l = Label(self.settingsWidget, 'Centre:', grid=(si, 0))
+    # self.roiMethodPulldown = PulldownList(self.settingsWidget, callback=self._roiPresetCallBack, grid=(si, 1))
+    # self.roiMethodPulldown.setData([mean, median, std], objects=[np.mean, np.median, np.std])
+    # si += 1
+    # l = Label(self.settingsWidget, '%:', grid=(si, 0))
+    # self.roiPercValue = Spinbox(self.settingsWidget, value=10, min=1, grid=(si, 1))
+    # self.roiPercValue.valueChanged.connect(self._roiPresetCallBack)
 
   ########### Generic functions to 'talk' with the decomposition base class ############
 
@@ -531,21 +533,22 @@ class PcaModule(CcpnModule):
     self._addScatterSelectionBox()
     self._scatterViewbox.mouseClickEvent = self._scatterViewboxMouseClickEvent
     self._scatterViewbox.mouseDragEvent = self._scatterMouseDragEvent
-    self._scatterViewbox.scene().sigMouseMoved.connect(self.mouseMoved) #use this if you need the mouse Posit
+    # self._scatterViewbox.scene().sigMouseMoved.connect(self.mouseMoved) #use this if you need the mouse Posit
     self._plotItem.setMenuEnabled(False)
 
     self.scatterPlot = pg.ScatterPlotItem(size=10, pen=pg.mkPen(None), brush=pg.mkBrush(255, 255, 255, 120))
     # self.scatterPlot.sigClicked.connect(self._plotClicked)
     self.scatterPlot.mouseClickEvent = self._scatterMouseClickEvent
     self.scatterPlot.mouseDoubleClickEvent = self._scatterMouseDoubleClickEvent
-    self.roi = pg.ROI(*DefaultRoi, pen=ROIline)
-    self._setROIhandles()
-    self.roi.sigRegionChangeFinished.connect(self.getROIdata)
+    # ROI not in use
+    # self.roi = pg.ROI(*DefaultRoi, pen=ROIline)
+    # self._setROIhandles()
+    # self.roi.sigRegionChangeFinished.connect(self.getROIdata)
+    # self._plotItem.addItem(self.roi)
     self.xLine = pg.InfiniteLine(angle=90, pos=0, pen=OriginAxes)
     self.yLine = pg.InfiniteLine(angle=0, pos=0, pen=OriginAxes)
 
     self._plotItem.addItem(self.scatterPlot)
-    self._plotItem.addItem(self.roi)
     self._plotItem.addItem(self.xLine)
     self._plotItem.addItem(self.yLine)
     layoutParent.getLayout().addWidget(self._scatterView)
@@ -581,92 +584,119 @@ class PcaModule(CcpnModule):
 
 
   ########### ROI box for scatter Plot ############
+  ###  Not in Use but functional code
 
-  def _roiPresetCallBack(self, *args):
-    v = self.roiMethodPulldown.getObject()
-    perc = self.roiPercValue.get()
-    self.presetROI(v, perc)
+  # def _roiPresetCallBack(self, *args):
+  #   v = self.roiMethodPulldown.getObject()
+  #   perc = self.roiPercValue.get()
+  #   self.presetROI(v, perc)
+  #
+  # def _roiMouseActionCallBack(self, *args):
+  #   """ called by the context menu. Sets the settings checkbox, The settings CB will do the actual work"""
+  #   self.roiCheckbox.set(not self.roiCheckbox.get())
+  #   self._toggleROI()
+  #
+  # def _toggleROI(self,*args):
+  #   """ Toggle the ROI from the scatter plot"""
+  #   v = self.roiCheckbox.get()
+  #   if v:
+  #     self.roi.show()
+  #   else:
+  #     self.roi.hide()
+  #
+  # def _setROIhandles(self):
+  #   """ sets the handle in each corners, no matter the roi sizes """
+  #   self.roi.addScaleHandle([1, 1], [0.5, 0.5], name = 'topRight')
+  #   self.roi.addScaleHandle([0, 1], [1, 0],     name = 'topLeft')
+  #   self.roi.addScaleHandle([0, 0], [0.5, 0.5], name = 'bottomLeft')
+  #   self.roi.addScaleHandle([1, 0], [0, 1],     name = 'bottomRight'),
+  #
+  # def getROIdata(self):
+  #   """
+  #   the values for the ROI
+  #   (getState returns a dict ['pos']  left bottom corner, ['size'] the size of RO1 and ['angle'] for this RectROI is 0)
+  #   :return: a list of rectangle coordinates in the format minX, maxX, minY, maxY
+  #   """
+  #   state = self.roi.getState()
+  #   pos = state['pos']
+  #   size = state['size']
+  #   xMin = pos[0]
+  #   xMax = pos[0]+size[0]
+  #   yMin = pos[1]
+  #   yMax = pos[1] + size[1]
+  #   return [xMin, xMax, yMin, yMax]
+  #
+  # def presetROI(self, func = np.median, percent=20):
+  #   """
+  #   Apply the function (default np.mean) to the currently displayed plot data
+  #   to get the x,y values for setting the ROI box.
+  #   :param func: a function applicable to the x,y data
+  #   :return: set the ROI on the scatter plot
+  #   """
+  #
+  #   x, y = self.scatterPlot.getData()
+  #   if not len(x)>0 and not len(y)> 0:
+  #     return
+  #
+  #   xR = func(x)
+  #   yR = func(y)
+  #   xRange = np.max(x) - np.min(x)
+  #   yRange = np.max(y) - np.min(y)
+  #
+  #   xperc = percentage(percent, xRange)
+  #   yperc = percentage(percent, yRange)
+  #
+  #   xMin = xR - xperc
+  #   yMin = yR - yperc
+  #   xMax = xR + xperc
+  #   yMax = yR + yperc
+  #
+  #   self.setROI(xMin, xMax, yMin, yMax)
+  #
+  # def setROI(self, xMin,xMax,yMin,yMax):
+  #   """
+  #   a conversion mechanism to the internal roi setState
+  #   :param xMin:
+  #   :param xMax:
+  #   :param yMin:
+  #   :param yMax:
+  #   :return:  set the ROI box
+  #    """
+  #
+  #   state = {'pos':[], 'size':[], 'angle':0}
+  #   xSize = abs(xMin) + xMax
+  #   ySize = abs(yMin) + yMax
+  #   state['pos'] = [xMin,yMin]
+  #   state['size'] = [xSize, ySize]
+  #   self.roi.setState(state)
+  #
+  # def _selectFromROI(self):
+  #
+  #   scores = self.getPcaResults()
+  #   if scores is not None:
+  #     roi = self.getROIdata()
+  #     i,o = self.decomposition.splitDataWithinRange(scores, *self._getSelectedAxesLabels(), *roi)
+  #     if i is not None:
+  #       self._selectedObjs = i.index
+  #       self._selectScatterPoints()
+  #
+  # def _createGroupFromROI(self, inside=True):
+  #
+  #   xsel = self.xAxisSelector.get()
+  #   ysel = self.yAxisSelector.get()
+  #   xl = PC + str(xsel)
+  #   yl = PC + str(ysel)
+  #   scores = self.getPcaResults()
+  #   if scores is not None:
+  #     roi = self.getROIdata()
+  #     i,o = self.decomposition.splitDataWithinRange(scores, xl, yl, *roi)
+  #     if inside:
+  #       self.decomposition.createSpectrumGroupFromScores(list(i.index))
+  #     else:
+  #       self.decomposition.createSpectrumGroupFromScores(list(i.index))
 
-  def _roiMouseActionCallBack(self, *args):
-    """ called by the context menu. Sets the settings checkbox, The settings CB will do the actual work"""
-    self.roiCheckbox.set(not self.roiCheckbox.get())
-    self._toggleROI()
 
-  def _toggleROI(self,*args):
-    """ Toggle the ROI from the scatter plot"""
-    v = self.roiCheckbox.get()
-    if v:
-      self.roi.show()
-    else:
-      self.roi.hide()
-
-  def _setROIhandles(self):
-    """ sets the handle in each corners, no matter the roi sizes """
-    self.roi.addScaleHandle([1, 1], [0.5, 0.5], name = 'topRight')
-    self.roi.addScaleHandle([0, 1], [1, 0],     name = 'topLeft')
-    self.roi.addScaleHandle([0, 0], [0.5, 0.5], name = 'bottomLeft')
-    self.roi.addScaleHandle([1, 0], [0, 1],     name = 'bottomRight'),
-
-  def getROIdata(self):
-    """
-    the values for the ROI
-    (getState returns a dict ['pos']  left bottom corner, ['size'] the size of RO1 and ['angle'] for this RectROI is 0)
-    :return: a list of rectangle coordinates in the format minX, maxX, minY, maxY
-    """
-    state = self.roi.getState()
-    pos = state['pos']
-    size = state['size']
-    xMin = pos[0]
-    xMax = pos[0]+size[0]
-    yMin = pos[1]
-    yMax = pos[1] + size[1]
-    return [xMin, xMax, yMin, yMax]
-
-  def presetROI(self, func = np.median, percent=20):
-    """
-    Apply the function (default np.mean) to the currently displayed plot data
-    to get the x,y values for setting the ROI box.
-    :param func: a function applicable to the x,y data
-    :return: set the ROI on the scatter plot
-    """
-
-    x, y = self.scatterPlot.getData()
-    if not len(x)>0 and not len(y)> 0:
-      return
-
-    xR = func(x)
-    yR = func(y)
-    xRange = np.max(x) - np.min(x)
-    yRange = np.max(y) - np.min(y)
-
-    xperc = percentage(percent, xRange)
-    yperc = percentage(percent, yRange)
-
-    xMin = xR - xperc
-    yMin = yR - yperc
-    xMax = xR + xperc
-    yMax = yR + yperc
-
-    self.setROI(xMin, xMax, yMin, yMax)
-
-  def setROI(self, xMin,xMax,yMin,yMax):
-    """
-    a conversion mechanism to the internal roi setState
-    :param xMin:
-    :param xMax:
-    :param yMin:
-    :param yMax:
-    :return:  set the ROI box
-     """
-
-    state = {'pos':[], 'size':[], 'angle':0}
-    xSize = abs(xMin) + xMax
-    ySize = abs(yMin) + yMax
-    state['pos'] = [xMin,yMin]
-    state['size'] = [xSize, ySize]
-    self.roi.setState(state)
-
-  ## Scatter Selection box
+  ########### Selection box for scatter Plot ############
 
   def _addScatterSelectionBox(self):
     self._scatterSelectionBox = QtWidgets.QGraphicsRectItem(0, 0, 1, 1)
@@ -693,84 +723,11 @@ class PcaModule(CcpnModule):
     maxY = minY+r.height()
     return [minX,maxX,minY,maxY]
 
-  def _scatterMouseDoubleClickEvent(self, event):
-    """
-    e-implementation of scatter double click event
-    """
-    if self.mainWindow:
-      _openItemObject(self.mainWindow, self.current.pcaComponents)
-
-
-  def _scatterMouseClickEvent(self, ev):
-    """
-      Re-implementation of scatter mouse event to allow selections of a single point
-    """
-    plot = self.scatterPlot
-    pts = plot.pointsAt(ev.pos())
-    obj = None
-    if len(pts) > 0:
-      point = pts[0]
-      obj = point.data()
-
-    if leftMouse(ev):
-      if obj:
-        self._selectedObjs = [obj]
-        if self.current:
-          self.current.pcaComponents = self._selectedObjs
-        ev.accept()
-      else:
-        # "no spots, clear selection"
-        self._selectedObjs = []
-        if self.current:
-          self.current.pcaComponents = self._selectedObjs
-        ev.accept()
-
-    elif controlLeftMouse(ev):
-      # Control-left-click;  add to selection
-      self._selectedObjs.extend([obj])
-      if self.current:
-        self.current.pcaComponents = self._selectedObjs
-      ev.accept()
-
-    else:
-        ev.ignore()
-
-
-
-  def _scatterMouseDragEvent(self, event):
-    """
-    Re-implementation of PyQtGraph mouse drag event to allow custom actions off of different mouse
-    drag events. Same as spectrum Display. Check Spectrum Display View Box for more documentation.
-
-    """
-    if leftMouse(event):
-      pg.ViewBox.mouseDragEvent(self._scatterViewbox, event)
-
-    elif controlLeftMouse(event):
-      self._updateScatterSelectionBox(event.buttonDownPos(), event.pos())
-      event.accept()
-      if not event.isFinish():
-        self._updateScatterSelectionBox(event.buttonDownPos(), event.pos())
-
-      else: ## the event is finished.
-        pts = self._updateScatterSelectionBox(event.buttonDownPos(), event.pos())
-        if self.decomposition:
-          i, o = self.decomposition.splitDataWithinRange(self.getPcaResults(),
-                                                         *self._getSelectedAxesLabels(), *pts)
-          self._selectedObjs.extend(i.index)
-          self._selectScatterPoints()
-        self._resetSelectionBox()
-
-    else:
-      self._resetSelectionBox()
-      event.ignore()
-
   def _resetSelectionBox(self):
     "Reset/Hide the boxes "
     self._successiveClicks = None
     self._scatterSelectionBox.hide()
     self._scatterViewbox.rbScaleBox.hide()
-
 
   def _clearScatterSelection(self):
     self._selectedObjs = []
@@ -787,30 +744,6 @@ class PcaModule(CcpnModule):
     invs = [point.data() for point in self.scatterPlot.points() if point.data() not in self._selectedObjs]
     self._selectedObjs= invs
     self._selectScatterPoints()
-
-  def _selectFromROI(self):
-
-    scores = self.getPcaResults()
-    if scores is not None:
-      roi = self.getROIdata()
-      i,o = self.decomposition.splitDataWithinRange(scores, *self._getSelectedAxesLabels(), *roi)
-      if i is not None:
-        self._selectedObjs = i.index
-        self._selectScatterPoints()
-
-
-  def _createGroupSelection(self):
-    """ Create groups from selection. Implemented only for Spectrum Group """
-    if all(isinstance(x, Spectrum) for x in self._selectedObjs):
-      self.decomposition.createSpectrumGroupFromScores(self._selectedObjs)
-    else:
-      getLogger().warn('Impossible to create groups. This functionality works only with spectra')
-
-  def _openSelected(self):
-    try:
-      _openItemObject(self.mainWindow, self._selectedObjs)
-    except:
-      getLogger().warn('Impossible to create Groups')
 
   def _getObjFromPoints(self, points=None):
     if points is None:
@@ -859,7 +792,6 @@ class PcaModule(CcpnModule):
     self._plotItem.setLabel('bottom', xAxisLabel)
     self._plotItem.setLabel('left', yAxisLabel)
 
-
   def _plotSpots(self, spots):
     """
     plots the data in the format requested by the pg.ScatterPlot widget
@@ -876,7 +808,6 @@ class PcaModule(CcpnModule):
     """
     self.scatterPlot.clear()
     self.scatterPlot.addPoints(spots)
-
 
   def _setAxes(self, scores):
     """ Set X and Y axes from the PCA scores dataFrame.
@@ -908,20 +839,75 @@ class PcaModule(CcpnModule):
     """ Refreshes all module by resetting the sources"""
     self._setSourcesSelection()
 
-  def _createGroupFromROI(self, inside=True):
+  ###########  scatter Mouse Events ############
 
-    xsel = self.xAxisSelector.get()
-    ysel = self.yAxisSelector.get()
-    xl = PC + str(xsel)
-    yl = PC + str(ysel)
-    scores = self.getPcaResults()
-    if scores is not None:
-      roi = self.getROIdata()
-      i,o = self.decomposition.splitDataWithinRange(scores, xl, yl, *roi)
-      if inside:
-        self.decomposition.createSpectrumGroupFromScores(list(i.index))
+  def _scatterMouseDoubleClickEvent(self, event):
+    """
+    e-implementation of scatter double click event
+    """
+    self._openSelectedPoint()
+
+  def _scatterMouseClickEvent(self, ev):
+    """
+      Re-implementation of scatter mouse event to allow selections of a single point
+    """
+    plot = self.scatterPlot
+    pts = plot.pointsAt(ev.pos())
+    obj = None
+    if len(pts) > 0:
+      point = pts[0]
+      obj = point.data()
+
+    if leftMouse(ev):
+      if obj:
+        self._selectedObjs = [obj]
+        if self.current:
+          self.current.pcaComponents = self._selectedObjs
+        ev.accept()
       else:
-        self.decomposition.createSpectrumGroupFromScores(list(i.index))
+        # "no spots, clear selection"
+        self._selectedObjs = []
+        if self.current:
+          self.current.pcaComponents = self._selectedObjs
+        ev.accept()
+
+    elif controlLeftMouse(ev):
+      # Control-left-click;  add to selection
+      self._selectedObjs.extend([obj])
+      if self.current:
+        self.current.pcaComponents = self._selectedObjs
+      ev.accept()
+
+    else:
+      ev.ignore()
+
+  def _scatterMouseDragEvent(self, event, *args):
+    """
+    Re-implementation of PyQtGraph mouse drag event to allow custom actions off of different mouse
+    drag events. Same as spectrum Display. Check Spectrum Display View Box for more documentation.
+    Known bug: left drag on the axis, raises a pyqtgraph exception
+    """
+    if leftMouse(event):
+      pg.ViewBox.mouseDragEvent(self._scatterViewbox, event)
+
+    elif controlLeftMouse(event):
+      self._updateScatterSelectionBox(event.buttonDownPos(), event.pos())
+      event.accept()
+      if not event.isFinish():
+        self._updateScatterSelectionBox(event.buttonDownPos(), event.pos())
+
+      else:  ## the event is finished.
+        pts = self._updateScatterSelectionBox(event.buttonDownPos(), event.pos())
+        if self.decomposition:
+          i, o = self.decomposition.splitDataWithinRange(self.getPcaResults(),
+                                                         *self._getSelectedAxesLabels(), *pts)
+          self._selectedObjs.extend(i.index)
+          self._selectScatterPoints()
+        self._resetSelectionBox()
+
+    else:
+      self._resetSelectionBox()
+      event.ignore()
 
   def _scatterViewboxMouseClickEvent(self, event):
     """ click on scatter viewBox. The parent of scatterPlot. Opens the context menu at any point. """
@@ -943,6 +929,8 @@ class PcaModule(CcpnModule):
     #   y =  mousePoint.y()
 
 
+  ############  scatter ContextMenu  ############
+
   def _showExportDialog(self, viewBox):
     """
     :param viewBox: the viewBox obj for the selected plot
@@ -953,13 +941,15 @@ class PcaModule(CcpnModule):
     self._exportDialog.show(viewBox)
 
   def _toggleSelectionOptions(self):
-    v = (len(self._selectedObjs)>0)
+    """Disables some options on the scatter context menu if not selection  """
+    v = len(self._selectedObjs)>0
     self.resetSelectionAction.setEnabled(v)
     self.invertSelectionAction.setEnabled(v)
     self.groupSelectionAction.setEnabled(v)
     self._openSelectedAction.setEnabled(v)
 
   def _raiseScatterContextMenu(self, ev):
+    """ Creates all the menu items for the scatter context menu. """
 
     self._scatterContextMenu = Menu('', None, isFloatWidget=True)
     self._scatterContextMenu.addAction('Reset View', self._plotItem.autoRange)
@@ -980,7 +970,7 @@ class PcaModule(CcpnModule):
 
     self._scatterContextMenu.addAction(self.groupSelectionAction)
     self._openSelectedAction = QtGui.QAction("Open selected", self,
-                                              triggered=self._openSelected)
+                                             triggered=self._openSelectedPoint)
 
     self._scatterContextMenu.addAction(self._openSelectedAction)
     self._scatterContextMenu.addSeparator()
@@ -991,6 +981,19 @@ class PcaModule(CcpnModule):
     self._toggleSelectionOptions()
 
     self._scatterContextMenu.exec_(ev.screenPos().toPoint())
+
+  def _createGroupSelection(self):
+    """ Create groups from selection. Implemented only for Spectrum Group """
+    if all(isinstance(x, Spectrum) for x in self._selectedObjs):
+      self.decomposition.createSpectrumGroupFromScores(self._selectedObjs)
+    else:
+      getLogger().warn('Impossible to create groups. This functionality works only with spectra')
+
+  def _openSelectedPoint(self):
+    try:
+      _openItemObject(self.mainWindow, self._selectedObjs)
+    except:
+      getLogger().warn('Failed to open selected objects')
 
   ########### Variance Plot ############
 
@@ -1047,7 +1050,7 @@ class PcaModule(CcpnModule):
     self.decomposition.sources = self.sourceList.getSelectedTexts()
     self._setAxes(scores=self.getPcaResults())
     self._axisChanged()
-    self._roiPresetCallBack()
+    # self._roiPresetCallBack()
     self._setVectorSelector(self.getVectorsResults())
     self.plotVariance(varianceDataFrame=self.getVarianceResults())
 
