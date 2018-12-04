@@ -399,6 +399,7 @@ class PcaModule(CcpnModule):
       self.decomposition.auto = True
 
       # notifiers
+
       self._selectPCAcompNotifier = Notifier(self.current, [Notifier.CURRENT], targetName=PCAcompontents
                                              , onceOnly=True, callback=self._selectCurrentPCAcompNotifierCallback)
 
@@ -1050,8 +1051,11 @@ class PcaModule(CcpnModule):
     self.decomposition.saveLoadingsToSpectra(prefix=saveName, descale=descale)
 
 
-
-
+  def _closeModule(self):
+    """Re-implementation of closeModule function from CcpnModule to unregister notification """
+    if self._selectPCAcompNotifier is not None:
+      self._selectPCAcompNotifier.unRegister()
+    super(PcaModule, self)._closeModule()
 
 
 if __name__ == '__main__':
