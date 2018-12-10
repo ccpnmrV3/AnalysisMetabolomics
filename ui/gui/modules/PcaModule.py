@@ -48,6 +48,8 @@ from ccpn.ui.gui.widgets.LineEdit import LineEdit
 from ccpn.ui.gui.widgets.ListWidget import ListWidget
 from ccpn.ui.gui.widgets.PulldownList import PulldownList
 from ccpn.ui.gui.widgets.Spinbox import Spinbox
+from ccpn.ui.gui.widgets.DoubleSpinbox import DoubleSpinbox
+
 from ccpn.ui.gui.widgets.CustomExportDialog import CustomExportDialog
 from ccpn.ui.gui.widgets.BarGraph import CustomViewBox
 from ccpn.ui.gui.lib.mouseEvents import \
@@ -122,6 +124,7 @@ class Decomposition:
     self.__scaling = pareto # str
     self.__data = None  #will be a dataframe containg the 1D array of spectral intensities and the relative pid
     self.__sourcesChanged = True
+    self.__includedRegion = None
     self.__normChanged = True
     self.__centChanged = True
     self.__scalingChanged = True
@@ -177,6 +180,18 @@ class Decomposition:
       self.decompose()
 
   @property
+  def includedRegion(self):
+    """ Region of intestest for calculating the PCA """
+    return self.__includedRegion
+
+  @includedRegion.setter
+  def includedRegion(self, value):
+    self.__includedRegion = value
+    if self.auto:
+      self.decompose(self.__data)
+
+
+  @property
   def scores(self):
     """ scores as a pandas dataframe """
 
@@ -201,7 +216,9 @@ class Decomposition:
 
   def decompose(self, data = None):
     """
+    data: dataframe with index: obj, xs as columns, ys as rows
     get the data, init the pca model and then plot the results
+
     """
     success = False
     if data is None:
@@ -218,7 +235,7 @@ class Decomposition:
     return success
 
 
-  def buildSourceFromSpectra(self, spectra, xRange=[-1,9]):
+  def buildSourceFromSpectra(self, spectra, xRange=None):
     """
 
     :param spectra: list of spectra
@@ -241,24 +258,27 @@ class Decomposition:
 
 
   @cached('_buildSourceData', maxItems=256, debug=False)
-  def buildSourceData(self, sources, xRange=[-1,9]):
+  def buildSourceData(self, sources, includedRegion=None):
     """
 
     :param sources: list of pids
     :param xRange: the region of interest in the spectrum
     :return: the sources back
     Sets the __data with a dataframe: each row is a spectrum. Coloumn 1 is the pid, all other columns are spectrum intesities
+    TODO implement for other obj types, including non Core obj
     """
     self.__sourcesChanged = False
 
     frames = []
+    if not includedRegion:
+      includedRegion = self.includedRegion
     for pid in sources:
       obj = self.project.getByPid(pid)
       if isinstance(obj, Spectrum):
-        frames.append(self.buildSourceFromSpectra([obj], xRange))
+        frames.append(self.buildSourceFromSpectra([obj], includedRegion))
       elif isinstance(obj, SpectrumGroup):
         for sp in obj.spectra:
-          frames.append(self.buildSourceFromSpectra([sp], xRange))
+          frames.append(self.buildSourceFromSpectra([sp], includedRegion))
       else:
         getLogger().warning('PCA not implemented for %s' % obj)
     if len(frames)>0:
@@ -475,6 +495,11 @@ class PcaModule(CcpnModule):
     self.scalingMethodPulldown = PulldownList(self.settingsWidget, callback=self.setScaling, grid=(si, 1))
     self.scalingMethodPulldown.setData([pareto, variance, none])
     si += 1
+    l = Label(self.settingsWidget, 'Spectral ROI (ppm):', grid=(si, 0))
+    self.spectralRegionFrame = Frame(self.settingsWidget, setLayout=True, grid=(si, 1))
+    self.xMin1D = DoubleSpinbox(self.spectralRegionFrame, prefix='Min', value=-14, min=-1000,decimals=3, grid=(0, 0))
+    self.xMax1D = DoubleSpinbox(self.spectralRegionFrame, prefix='Max',value=14, max=1000,decimals=3, grid=(0, 1))
+    self.xMin1D.editingFinished.connect(self._changeSpectralRegion)
 
     # ROI Not in Use but working code
     # HLine(self.settingsWidget, grid=(si, 0), gridSpan=(0, 2), colour=getColours()[DIVIDER], height=5)
@@ -521,6 +546,11 @@ class PcaModule(CcpnModule):
       if vectorsDF is not None:
         if vectorsDF.shape[0] > 1:
           return vectorsDF
+
+  def _changeSpectralRegion(self):
+    r = [self.xMin1D.get(), self.xMax1D.get()]
+    if self.decomposition is not None:
+      self.decomposition.includedRegion = [min(r), max(r)]
 
   ########### Create all widgets for each tab ############
 
