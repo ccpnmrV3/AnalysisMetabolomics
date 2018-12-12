@@ -7,7 +7,7 @@ __credits__ = ("Wayne Boucher, Ed Brooksbank, Rasmus H Fogh, Luca Mureddu, Timot
 __licence__ = ("CCPN licence. See http://www.ccpn.ac.uk/v3-software/downloads/license",
                "or ccpnmodel.ccpncore.memops.Credits.CcpnLicense for licence text")
 __reference__ = ("For publications, please use reference from http://www.ccpn.ac.uk/v3-software/downloads/license",
-               "or ccpnmodel.ccpncore.memops.Credits.CcpNmrReference")
+                 "or ccpnmodel.ccpncore.memops.Credits.CcpNmrReference")
 #=========================================================================================
 # Last code modification
 #=========================================================================================
@@ -45,99 +45,95 @@ from ccpn.core.SpectrumHit import SpectrumHitPeakList
 from ccpn.core.lib.Notifiers import Notifier
 from ccpn.ui.gui.widgets.QuickTable import QuickTable
 
+
 Qt = QtCore.Qt
 Qkeys = QtGui.QKeySequence
 
 
-
 class MetaboliteFinderModule(CcpnModule):
+    includeSettingsWidget = False
+    maxSettingsState = 2
+    settingsPosition = 'top'
+    className = 'MetaboliteFinderModule'
 
-  includeSettingsWidget = False
-  maxSettingsState = 2
-  settingsPosition = 'top'
-  className = 'MetaboliteFinderModule'
+    def __init__(self, mainWindow, name='BMRB Metabolite Finder', **kwds):
+        super(MetaboliteFinderModule, self)
+        CcpnModule.__init__(self, mainWindow=mainWindow, name=name)
+        self.application = None
+        self.project = None
+        self.current = None
+        self.preferences = None
 
-  def __init__(self, mainWindow, name='BMRB Metabolite Finder', **kwds):
-    super(MetaboliteFinderModule, self)
-    CcpnModule.__init__(self, mainWindow=mainWindow, name=name)
-    self.application = None
-    self.project = None
-    self.current = None
-    self.preferences = None
+        if mainWindow is not None:
+            self.mainWindow = mainWindow
+            self.project = self.mainWindow.project
+            self.application = self.mainWindow.application
+            self.moduleArea = self.mainWindow.moduleArea
+            self.preferences = self.application.preferences
+            self.current = self.application.current
 
-    if mainWindow is not None:
-      self.mainWindow = mainWindow
-      self.project = self.mainWindow.project
-      self.application = self.mainWindow.application
-      self.moduleArea = self.mainWindow.moduleArea
-      self.preferences = self.application.preferences
-      self.current = self.application.current
+        self._createWidgets()
 
-    self._createWidgets()
+    def _createWidgets(self):
+        """ Add all widgets to the layout """
+        i = 0
+        self.chemicalShiftLabel = Label(self.mainWidget, 'Chemical Shifts', grid=(i, 0))
+        i += 1
+        self.chemicalShiftList = TextEditor(self.mainWidget, grid=(i, 0))
+        self.chemicalShiftList.setMaximumHeight(50)
+        i += 1
+        self.copyFromCurrentButton = Button(self.mainWidget, 'Copy from current Peak(s)', grid=(i, 0))
+        i += 1
+        self.searchButton = Button(self.mainWidget, 'Search', callback=self._quearyBMRB, grid=(i, 0))
+        i += 1
+        self.metTable = QuickTable(self.mainWidget, mainWindow=self.mainWindow,
+                                   selectionCallback=None,
+                                   actionCallback=None,
+                                   grid=(i, 0))
 
-  def _createWidgets(self):
-    """ Add all widgets to the layout """
-    i = 0
-    self.chemicalShiftLabel = Label(self.mainWidget,'Chemical Shifts', grid=(i, 0))
-    i+=1
-    self.chemicalShiftList = TextEditor(self.mainWidget,  grid=(i, 0))
-    self.chemicalShiftList.setMaximumHeight(50)
-    i += 1
-    self.copyFromCurrentButton = Button(self.mainWidget, 'Copy from current Peak(s)', grid=(i, 0))
-    i += 1
-    self.searchButton = Button(self.mainWidget,'Search', callback=self._quearyBMRB, grid=(i, 0))
-    i += 1
-    self.metTable = QuickTable(self.mainWidget, mainWindow=self.mainWindow,
-                               selectionCallback=None,
-                               actionCallback=None,
-                               grid=(i, 0))
+    def _shiftsFromCurrentPeaks(self):
+        if self.current:
+            peaks = self.current.peaks
+            shifts = peaksToShifts1D(peaks)
+            self.chemicalShiftList.clear()
+            text = ''
+            for s in shifts:
+                text += str(round(s, 3)) + ','
+            self.chemicalShiftList.setText(text)
 
-  def _shiftsFromCurrentPeaks(self):
-    if self.current:
-      peaks = self.current.peaks
-      shifts = peaksToShifts1D(peaks)
-      self.chemicalShiftList.clear()
-      text = ''
-      for s in shifts:
-        text += str(round(s,3)) + ','
-      self.chemicalShiftList.setText(text)
+    def _quearyBMRB(self):
+        text = self.chemicalShiftList.get()
+        lstStr = text.split(",")
+        shifts = [float(i) for i in lstStr]
+        df = bmrbMultiShiftSearch(shifts)
+        print(df)
+        self._setTable(df)
 
-
-  def _quearyBMRB(self):
-    text = self.chemicalShiftList.get()
-    lstStr = text.split(",")
-    shifts = [float(i) for i in lstStr]
-    df = bmrbMultiShiftSearch(shifts)
-    print(df)
-    self._setTable(df)
-
-
-  def _setTable(self, dataframe):
-    "Sets the table with a dataframe from bmrb website results."
-    self.metTable.setData(dataframe)
-
-
+    def _setTable(self, dataframe):
+        "Sets the table with a dataframe from bmrb website results."
+        self.metTable.setData(dataframe)
 
 
 if __name__ == '__main__':
-  from ccpn.ui.gui.widgets.Application import TestApplication
-  from ccpn.ui.gui.widgets.CcpnModuleArea import CcpnModuleArea
+    from ccpn.ui.gui.widgets.Application import TestApplication
+    from ccpn.ui.gui.widgets.CcpnModuleArea import CcpnModuleArea
 
-  app = TestApplication()
 
-  win = QtWidgets.QMainWindow()
+    app = TestApplication()
 
-  moduleArea = CcpnModuleArea(mainWindow=None, )
-  module = MetaboliteFinderModule(mainWindow=None)
-  ala = ['3.771', '1.471']
-  data = {'col_1': [3, 2, 1, 0], 'col_2': ['a', 'b', 'c', 'd']}
-  df = pd.DataFrame.from_dict(data)
-  # module._setTable(df)
-  moduleArea.addModule(module)
+    win = QtWidgets.QMainWindow()
 
-  win.setCentralWidget(moduleArea)
-  win.resize(1000, 500)
-  win.setWindowTitle('Testing %s' % module.moduleName)
-  win.show()
+    moduleArea = CcpnModuleArea(mainWindow=None, )
+    module = MetaboliteFinderModule(mainWindow=None)
+    ala = ['3.771', '1.471']
+    data = {'col_1': [3, 2, 1, 0], 'col_2': ['a', 'b', 'c', 'd']}
+    df = pd.DataFrame.from_dict(data)
+    # module._setTable(df)
+    moduleArea.addModule(module)
 
-  app.start()
+    win.setCentralWidget(moduleArea)
+    win.resize(1000, 500)
+    win.setWindowTitle('Testing %s' % module.moduleName)
+    win.show()
+
+    app.start()
