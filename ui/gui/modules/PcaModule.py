@@ -34,6 +34,7 @@ from ccpn.util.Logging import getLogger
 from functools import partial
 import pyqtgraph as pg
 from PyQt5 import QtCore, QtGui, QtWidgets
+from ccpn.core.NmrResidue import NmrResidue
 from ccpn.core.Spectrum import Spectrum
 from ccpn.core.SpectrumGroup import SpectrumGroup
 from ccpn.ui.gui.modules.CcpnModule import CcpnModule
@@ -49,7 +50,7 @@ from ccpn.ui.gui.widgets.ListWidget import ListWidget
 from ccpn.ui.gui.widgets.PulldownList import PulldownList
 from ccpn.ui.gui.widgets.Spinbox import Spinbox
 from ccpn.ui.gui.widgets.DoubleSpinbox import DoubleSpinbox
-
+from ccpn.core.lib.peakUtils import getNmrResidueDeltas
 from ccpn.ui.gui.widgets.CustomExportDialog import CustomExportDialog
 from ccpn.ui.gui.widgets.BarGraph import CustomViewBox
 from ccpn.ui.gui.lib.mouseEvents import \
@@ -255,9 +256,57 @@ class Decomposition:
     data = pd.concat(l, axis=1).T
     return data
 
+  def getConcentrationsFromSpectra(self, spectra, ):
+
+    vs = []
+    # us = []
+    u = 0.0
+    for spectrum in spectra:
+
+      if spectrum.sample:
+        sampleComponent = spectrum.sample._fetchSampleComponent(name=spectrum.name)
+        v = sampleComponent.concentration
+        u = sampleComponent.concentrationUnit
+      else:
+        v = None
+        u = 0.0
+
+      vs.append(v)
+      # us.append(u)
+      # this is unfortunate. We can select only one unit for all
+
+    return vs, u
+
+  def buildSourceFromNmrResidues(self, nmrResidues, xRange=None):
+    """
+
+    """
+    atomNames = ["H", "N"]
+    spectra = [p.peakList.spectrum for p in nmrResidues[0].nmrAtoms[0].assignedPeaks]
+
+    values = []
+    for nmrResidue in nmrResidues:
+      if len(spectra) > 1:
+        deltas = []
+        concentrationsValues = []
+        zeroSpectrum, otherSpectra = spectra[0], spectra[1:]
+        for i, spectrum in enumerate(otherSpectra,1):
+          if nmrResidue._includeInDeltaShift:
+            delta = getNmrResidueDeltas(nmrResidue, atomNames, spectra=[zeroSpectrum, spectrum])
+            deltas.append(delta)
+            concentration = i
+            concentrationsValues.append(concentration)
+        print(deltas,concentrationsValues,nmrResidue)
+        df = pd.DataFrame([deltas], index=[nmrResidue], columns=concentrationsValues)
+        df = df.replace(np.nan, 0)
+        values.append(df)
+    # if len(values) > 0:
+    return pd.concat(values)
 
 
-  @cached('_buildSourceData', maxItems=256, debug=False)
+
+
+  # @cached('_buildSourceData', maxItems=256, debug=False)
   def buildSourceData(self, sources, includedRegion=None):
     """
 
@@ -279,6 +328,8 @@ class Decomposition:
       elif isinstance(obj, SpectrumGroup):
         for sp in obj.spectra:
           frames.append(self.buildSourceFromSpectra([sp], includedRegion))
+      elif isinstance(obj, NmrResidue):
+        frames.append(self.buildSourceFromNmrResidues([obj], includedRegion))
       else:
         getLogger().warning('PCA not implemented for %s' % obj)
     if len(frames)>0:
@@ -442,7 +493,7 @@ class PcaModule(CcpnModule):
     self._setScatterTabWidgets(layoutParent=self.scatterFrame)
     self.tabWidget.addTab(self.scatterFrame, 'Scatter')
 
-    ## 2 Tab Vectors Disabled as not implemented yet
+    ## 2 Tab Vectors
     self.vectorFrame = Frame(self.mainWidget, setLayout=True)
     self.vectorFrame.setContentsMargins(1, 10, 1, 10)
     self._setVectorTabWidgets(layoutParent=self.vectorFrame)
@@ -566,7 +617,7 @@ class PcaModule(CcpnModule):
     # self._scatterViewbox.scene().sigMouseMoved.connect(self.mouseMoved) #use this if you need the mouse Posit
     self._plotItem.setMenuEnabled(False)
 
-    self.scatterPlot = pg.ScatterPlotItem(size=10, pen=pg.mkPen(None), brush=pg.mkBrush(255, 255, 255, 120))
+    self.scatterPlot = pg.ScatterPlotItem(size=10, pen=pg.mkPen(None), brush=pg.mkBrush(255, 0, 0))
     # self.scatterPlot.sigClicked.connect(self._plotClicked)
     self.scatterPlot.mouseClickEvent = self._scatterMouseClickEvent
     self.scatterPlot.mouseDoubleClickEvent = self._scatterMouseDoubleClickEvent
@@ -810,7 +861,7 @@ class PcaModule(CcpnModule):
       return
     spots = []
     for obj, row in dataFrame.iterrows():
-      dd = {'pos': [0, 0], 'data': 'obj', 'brush': pg.mkBrush(255, 255, 255, 120), 'symbol': 'o', 'size': 10, 'pen':None}
+      dd = {'pos': [0, 0], 'data': 'obj', 'brush': pg.mkBrush(255, 0, 0), 'symbol': 'o', 'size': 10, 'pen':None} #red default
       dd['pos'] = [row[xAxisLabel], row[yAxisLabel]]
       dd['data'] = obj
       if hasattr(obj, 'sliceColour'): # colour from the spectrum. The only CCPN obj implemeted so far
