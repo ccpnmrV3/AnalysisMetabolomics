@@ -235,10 +235,8 @@ class Decomposition:
         success = True
     return success
 
-
   def buildSourceFromSpectra(self, spectra, xRange=None):
     """
-
     :param spectra: list of spectra
     :param xRange: the region of interest in the spectrum
     :return: the sources back
@@ -255,56 +253,6 @@ class Decomposition:
     l = [pd.Series(spectraDict[name][1], name=name) for name in sorted(spectraDict.keys())]
     data = pd.concat(l, axis=1).T
     return data
-
-  def getConcentrationsFromSpectra(self, spectra, ):
-
-    vs = []
-    # us = []
-    u = 0.0
-    for spectrum in spectra:
-
-      if spectrum.sample:
-        sampleComponent = spectrum.sample._fetchSampleComponent(name=spectrum.name)
-        v = sampleComponent.concentration
-        u = sampleComponent.concentrationUnit
-      else:
-        v = None
-        u = 0.0
-
-      vs.append(v)
-      # us.append(u)
-      # this is unfortunate. We can select only one unit for all
-
-    return vs, u
-
-  def buildSourceFromNmrResidues(self, nmrResidues, xRange=None):
-    """
-
-    """
-    atomNames = ["H", "N"]
-    spectra = [p.peakList.spectrum for p in nmrResidues[0].nmrAtoms[0].assignedPeaks]
-
-    values = []
-    for nmrResidue in nmrResidues:
-      if len(spectra) > 1:
-        deltas = []
-        concentrationsValues = []
-        zeroSpectrum, otherSpectra = spectra[0], spectra[1:]
-        for i, spectrum in enumerate(otherSpectra,1):
-          if nmrResidue._includeInDeltaShift:
-            delta = getNmrResidueDeltas(nmrResidue, atomNames, spectra=[zeroSpectrum, spectrum])
-            deltas.append(delta)
-            concentration = i
-            concentrationsValues.append(concentration)
-        print(deltas,concentrationsValues,nmrResidue)
-        df = pd.DataFrame([deltas], index=[nmrResidue], columns=concentrationsValues)
-        df = df.replace(np.nan, 0)
-        values.append(df)
-    # if len(values) > 0:
-    return pd.concat(values)
-
-
-
 
   # @cached('_buildSourceData', maxItems=256, debug=False)
   def buildSourceData(self, sources, includedRegion=None):
@@ -328,8 +276,6 @@ class Decomposition:
       elif isinstance(obj, SpectrumGroup):
         for sp in obj.spectra:
           frames.append(self.buildSourceFromSpectra([sp], includedRegion))
-      elif isinstance(obj, NmrResidue):
-        frames.append(self.buildSourceFromNmrResidues([obj], includedRegion))
       else:
         getLogger().warning('PCA not implemented for %s' % obj)
     if len(frames)>0:
