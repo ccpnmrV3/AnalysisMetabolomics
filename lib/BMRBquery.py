@@ -84,9 +84,10 @@ Copied for understanding how it worked only.
 import pandas as pd
 import urllib.request, json
 
+
 BMRB_API_URL = "http://webapi.bmrb.wisc.edu/v2"
 Shift_search_URL = '/search/multiple_shift_search?'
-Database ='&database='
+Database = '&database='
 Metabolomics = 'metabolomics'
 AND = '&'
 S = 's='
@@ -101,13 +102,13 @@ ShiftLink = 'Link'
 PeaksMatched = 'Peaks_matched'
 
 ShiftColumns = [
-                AssignedshiftID,
-                CombinedOffset,
-                EntryID,
-                ShiftLink,
-                PeaksMatched,
-                Title,
-                ]
+    AssignedshiftID,
+    CombinedOffset,
+    EntryID,
+    ShiftLink,
+    PeaksMatched,
+    Title,
+    ]
 """
 Full address to be: 
 
@@ -119,33 +120,29 @@ Full address to be:
 
 """
 
-def bmrbMultiShiftSearch(shifts:list, databaseType=Metabolomics):
-  bmrbUrl = BMRB_API_URL+Shift_search_URL
-  shiftAsStr = ''
-  for shift in shifts:
-    shiftAsStr += S + str(shift) + AND
-  fullUrl = bmrbUrl+shiftAsStr+Database+databaseType
-  with urllib.request.urlopen(fullUrl) as url:
-      data = json.loads(url.read().decode())
-      d = data[csData]
-      df = pd.DataFrame.from_dict(d)
-  return d
+
+def bmrbMultiShiftSearch(shifts: list, databaseType=Metabolomics):
+    bmrbUrl = BMRB_API_URL + Shift_search_URL
+    shiftAsStr = ''
+    for shift in shifts:
+        shiftAsStr += S + str(shift) + AND
+    fullUrl = bmrbUrl + shiftAsStr + Database + databaseType
+    with urllib.request.urlopen(fullUrl) as url:
+        data = json.loads(url.read().decode())
+        d = data[csData]
+        df = pd.DataFrame.from_dict(d)
+    return d
 
 
 def peaksToShifts1D(objs):
-  '''
-  :param objs: peaks or multiplets
-  :return: a list of peak positions
-  '''
-  return [x.position[0] for x in objs]
-
-
+    '''
+    :param objs: peaks or multiplets
+    :return: a list of peak positions
+    '''
+    return [x.position[0] for x in objs]
 
 
 def testAla():
-  ala = [3.771,1.471]
-  df = bmrbMultiShiftSearch(ala)
-  print(df[Title], df[PeaksMatched])
-
-
-
+    ala = [3.771, 1.471]
+    df = bmrbMultiShiftSearch(ala)
+    print(df[Title], df[PeaksMatched])

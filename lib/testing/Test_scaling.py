@@ -6,7 +6,7 @@ __credits__ = ("Wayne Boucher, Ed Brooksbank, Rasmus H Fogh, Luca Mureddu, Timot
 __licence__ = ("CCPN licence. See http://www.ccpn.ac.uk/v3-software/downloads/license",
                "or ccpnmodel.ccpncore.memops.Credits.CcpnLicense for licence text")
 __reference__ = ("For publications, please use reference from http://www.ccpn.ac.uk/v3-software/downloads/license",
-               "or ccpnmodel.ccpncore.memops.Credits.CcpNmrReference")
+                 "or ccpnmodel.ccpncore.memops.Credits.CcpNmrReference")
 #=========================================================================================
 # Last code modification
 #=========================================================================================
@@ -33,61 +33,57 @@ from ccpn.AnalysisMetabolomics.lib import scaling
 
 class TestScaling(unittest.TestCase):
 
-  def test_unitVarianceScale(self):
-    rawSpectra = np.array([[1,1,1],
-                           [2,3,2]])
-    targetSpectra = np.array([[2,1,2],
-                              [4,3,4]])
+    def test_unitVarianceScale(self):
+        rawSpectra = np.array([[1, 1, 1],
+                               [2, 3, 2]])
+        targetSpectra = np.array([[2, 1, 2],
+                                  [4, 3, 4]])
 
-    scaledSpectra, descaleFunc = scaling.unitVarianceScale(rawSpectra)
-    npt.assert_array_equal(scaledSpectra, targetSpectra)
-    npt.assert_array_almost_equal(descaleFunc(scaledSpectra),
-                                  rawSpectra)
+        scaledSpectra, descaleFunc = scaling.unitVarianceScale(rawSpectra)
+        npt.assert_array_equal(scaledSpectra, targetSpectra)
+        npt.assert_array_almost_equal(descaleFunc(scaledSpectra),
+                                      rawSpectra)
 
+    def test_paretoScale(self):
+        rawSpectra = np.array([[1, 1, 1],
+                               [3, 9, 3]])
+        targetSpectra = np.array([[1, 0.5, 1],
+                                  [3, 4.5, 3]])
 
-  def test_paretoScale(self):
-    rawSpectra = np.array([[1,1,1],
-                           [3,9,3]])
-    targetSpectra = np.array([[1,0.5,1],
-                              [3,4.5,3]])
+        scaledSpectra, descaleFunc = scaling.paretoScale(rawSpectra)
+        npt.assert_array_equal(scaledSpectra, targetSpectra)
+        npt.assert_array_almost_equal(descaleFunc(scaledSpectra), rawSpectra)
 
-    scaledSpectra, descaleFunc = scaling.paretoScale(rawSpectra)
-    npt.assert_array_equal(scaledSpectra, targetSpectra)
-    npt.assert_array_almost_equal(descaleFunc(scaledSpectra), rawSpectra)
+    def test_autoScale(self):
+        rawSpectra = np.array([[1, 1, 1],
+                               [2, 3, 2]])
+        targetSpectra = np.array([[-1, -1, -1],
+                                  [1, 1, 1]])
 
+        scaledSpectra, descaleFunc = scaling.autoScale(rawSpectra)
+        npt.assert_array_equal(scaledSpectra, targetSpectra)
 
-  def test_autoScale(self):
-    rawSpectra = np.array([[1,1,1],
-                           [2,3,2]])
-    targetSpectra = np.array([[-1,-1,-1],
-                              [ 1, 1, 1]])
+    def test_rangeScale(self):
+        rawSpectra = np.array([[1, 1, 1],
+                               [2, 3, 2]])
+        targetSpectra = np.array([[1, 0.5, 1],
+                                  [2, 1.5, 2]])
 
-    scaledSpectra, descaleFunc = scaling.autoScale(rawSpectra)
-    npt.assert_array_equal(scaledSpectra, targetSpectra)
+        scaledSpectra = scaling.rangeScale(rawSpectra)
+        npt.assert_array_equal(scaledSpectra, targetSpectra)
 
+    def test_levelScale(self):
+        rawSpectra = np.array([[1, 1, 1],
+                               [3, 7, 3]])
+        targetSpectra = np.array([[0.5, 0.25, 0.5],
+                                  [1.5, 1.75, 1.5]])
 
-  def test_rangeScale(self):
-    rawSpectra = np.array([[1,1,1],
-                           [2,3,2]])
-    targetSpectra = np.array([[1,0.5,1],
-                              [2,1.5,2]])
+        scaledSpectra = scaling.levelScale(rawSpectra)
+        npt.assert_array_equal(scaledSpectra, targetSpectra)
 
-    scaledSpectra = scaling.rangeScale(rawSpectra)
-    npt.assert_array_equal(scaledSpectra, targetSpectra)
-
-  def test_levelScale(self):
-    rawSpectra = np.array([[1,1,1],
-                           [3,7,3]])
-    targetSpectra = np.array([[0.5,0.25,0.5],
-                              [1.5,1.75,1.5]])
-
-    scaledSpectra = scaling.levelScale(rawSpectra)
-    npt.assert_array_equal(scaledSpectra, targetSpectra)
-
-  def test_vastScale(self):
-    pass
+    def test_vastScale(self):
+        pass
 
 
 if __name__ == '__main__':
-  unittest.main()
-
+    unittest.main()

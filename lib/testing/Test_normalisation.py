@@ -6,7 +6,7 @@ __credits__ = ("Wayne Boucher, Ed Brooksbank, Rasmus H Fogh, Luca Mureddu, Timot
 __licence__ = ("CCPN licence. See http://www.ccpn.ac.uk/v3-software/downloads/license",
                "or ccpnmodel.ccpncore.memops.Credits.CcpnLicense for licence text")
 __reference__ = ("For publications, please use reference from http://www.ccpn.ac.uk/v3-software/downloads/license",
-               "or ccpnmodel.ccpncore.memops.Credits.CcpNmrReference")
+                 "or ccpnmodel.ccpncore.memops.Credits.CcpNmrReference")
 #=========================================================================================
 # Last code modification
 #=========================================================================================
@@ -33,29 +33,25 @@ from ccpn.AnalysisMetabolomics.lib import scaling
 
 class TestNormalisation(unittest.TestCase):
 
-  def test_TSA(self):
-    rawSpectra = np.array([[0,1,0],
-                           [0,2,0]])
+    def test_TSA(self):
+        rawSpectra = np.array([[0, 1, 0],
+                               [0, 2, 0]])
 
+        targetSpectra = np.array([[0, 1, 0],
+                                  [0, 1, 0]])
 
-    targetSpectra = np.array([[0,1,0],
-                              [0,1,0]])
+        normalizedSpectra = normalisation.tsa(rawSpectra)
+        npt.assert_array_equal(normalizedSpectra, targetSpectra)
 
-    normalizedSpectra = normalisation.tsa(rawSpectra)
-    npt.assert_array_equal(normalizedSpectra, targetSpectra)
+    def test_PQN(self):
+        rawSpectra = np.ones([2, 3])
+        rawSpectra[0, 1] = 2
 
-
-  def test_PQN(self):
-    rawSpectra = np.ones([2,3])
-    rawSpectra[0,1] = 2
-
-    normalizedSpectra = normalisation.pqn(rawSpectra)
-    self.assertEqual(normalizedSpectra[0,0], normalizedSpectra[1,0])
-    self.assertNotEqual(normalizedSpectra[0,1], normalizedSpectra[1,1])
-    self.assertEqual(normalizedSpectra[0,2], normalizedSpectra[1,2])
-
+        normalizedSpectra = normalisation.pqn(rawSpectra)
+        self.assertEqual(normalizedSpectra[0, 0], normalizedSpectra[1, 0])
+        self.assertNotEqual(normalizedSpectra[0, 1], normalizedSpectra[1, 1])
+        self.assertEqual(normalizedSpectra[0, 2], normalizedSpectra[1, 2])
 
 
 if __name__ == '__main__':
-  unittest.main()
-
+    unittest.main()
