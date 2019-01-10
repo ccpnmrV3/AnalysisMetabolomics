@@ -108,8 +108,7 @@ ROIline = rgbaRatioToHex(*getColours()[CCPNGLWIDGET_SELECTAREA])
 
 
 
-def percentage(percent, whole):
-  return (percent * whole) / 100.0
+
 
 
 class Decomposition:
