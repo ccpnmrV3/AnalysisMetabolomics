@@ -108,10 +108,6 @@ SelectedPoint = pg.functions.mkPen(rgbaRatioToHex(*getColours()[CCPNGLWIDGET_HIG
 ROIline = rgbaRatioToHex(*getColours()[CCPNGLWIDGET_SELECTAREA])
 
 
-def percentage(percent, whole):
-    return (percent * whole) / 100.0
-
-
 class Decomposition:
     """
     Base class for the Decomposition Module (the old "interactor"`!)
