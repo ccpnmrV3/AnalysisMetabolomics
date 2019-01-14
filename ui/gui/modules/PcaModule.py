@@ -60,7 +60,7 @@ from ccpn.ui.gui.lib.mouseEvents import \
     rightMouse, shiftRightMouse, controlRightMouse, controlShiftRightMouse
 from ccpn.ui.gui.guiSettings import autoCorrectHexColour, getColours, CCPNGLWIDGET_HEXBACKGROUND, \
     GUISTRIP_PIVOT, DIVIDER, CCPNGLWIDGET_SELECTAREA, CCPNGLWIDGET_HIGHLIGHT
-from ccpn.ui.gui.widgets.SideBar import _openItemObject
+from ccpn.ui.gui.lib.MenuActions import _openItemObject
 from ccpn.util.Colour import hexToRgb, rgbaRatioToHex
 from collections import OrderedDict
 from ccpn.core.lib.Notifiers import Notifier
