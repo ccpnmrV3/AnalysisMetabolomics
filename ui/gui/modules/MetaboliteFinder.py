@@ -42,7 +42,7 @@ from ccpn.AnalysisMetabolomics.lib.BMRBquery import peaksToShifts1D, bmrbMultiSh
 import pandas as pd
 from ccpn.core.SpectrumHit import SpectrumHitPeakList
 from ccpn.core.lib.Notifiers import Notifier
-from ccpn.ui.gui.widgets.QuickTable import QuickTable
+from ccpn.ui.gui.widgets.GuiTable import GuiTable
 
 
 Qt = QtCore.Qt
@@ -85,10 +85,10 @@ class MetaboliteFinderModule(CcpnModule):
         i += 1
         self.searchButton = Button(self.mainWidget, 'Search', callback=self._quearyBMRB, grid=(i, 0))
         i += 1
-        self.metTable = QuickTable(self.mainWidget, mainWindow=self.mainWindow,
-                                   selectionCallback=None,
-                                   actionCallback=None,
-                                   grid=(i, 0))
+        self.metTable = GuiTable(self.mainWidget, mainWindow=self.mainWindow,
+                                 selectionCallback=None,
+                                 actionCallback=None,
+                                 grid=(i, 0))
 
     def _shiftsFromCurrentPeaks(self):
         if self.current:
