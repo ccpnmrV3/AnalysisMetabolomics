@@ -33,7 +33,7 @@ class Metabolomics(Assign):
 
     def setupMenus(self):
         super().setupMenus()
-        menuSpec = ('Metabolomics', [("Decomposition (PCA)", self.showDecompositionModule),
+        menuSpec = ('Metabolomics', [("Decomposition (PCA)", self.showDecompositionModule), [('shortcut', 'de')],
                                      (),
                                      ("Pipeline", self.showMetabolomicsPipeline,),
                                      ])
