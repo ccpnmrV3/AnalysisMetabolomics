@@ -110,7 +110,7 @@ ROIline = rgbaRatioToHex(*getColours()[CCPNGLWIDGET_SELECTAREA])
 
 class Decomposition:
     """
-    Base class for the Decomposition Module (the old "interactor"`!)
+    Base class for the Decomposition Module (the old "interactor"!)
     """
 
     def __init__(self, project):
@@ -230,10 +230,10 @@ class Decomposition:
 
     def buildSourceFromSpectra(self, spectra, xRange=None):
         """
+        Sets the __data with a dataframe: each row is a spectrum. Column 1 is the pid, all other columns are spectrum intensities.
         :param spectra: list of spectra
         :param xRange: the region of interest in the spectrum
         :return: the sources back
-        Sets the __data with a dataframe: each row is a spectrum. Coloumn 1 is the pid, all other columns are spectrum intesities
         """
         spectraDict = OrderedDict()
         for spectrum in list(set(spectra)):
@@ -250,13 +250,13 @@ class Decomposition:
     # @cached('_buildSourceData', maxItems=256, debug=False)
     def buildSourceData(self, sources, includedRegion=None):
         """
+        Sets the __data with a dataframe: each row is a spectrum. Column 1 is the pid, all other columns are spectrum intensities.
 
         :param sources: list of pids
         :param xRange: the region of interest in the spectrum
         :return: the sources back
-        Sets the __data with a dataframe: each row is a spectrum. Coloumn 1 is the pid, all other columns are spectrum intesities
-        TODO implement for other obj types, including non Core obj
         """
+        # TODO implement for other obj types, including non Core obj
         self.__sourcesChanged = False
 
         frames = []
