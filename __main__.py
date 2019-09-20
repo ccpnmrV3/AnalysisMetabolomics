@@ -22,16 +22,13 @@ __date__ = "$Date: 2017-04-07 10:28:45 +0000 (Fri, April 07, 2017) $"
 # Start of code
 #=========================================================================================
 
-
 from ccpn.framework import Framework
 from ccpn.AnalysisMetabolomics.AnalysisMetabolomics import Metabolomics as Application
 from ccpn.framework.Version import applicationVersion
 
 
 if __name__ == '__main__':
-    from ccpn.util.GitTools import getAllRepositoriesGitCommit
-
-
+    # from ccpn.util.GitTools import getAllRepositoriesGitCommit
     # applicationVersion = 'development: {AnalysisMetabolomics:.8s}'.format(**getAllRepositoriesGitCommit())
 
     # argument parser
@@ -42,4 +39,5 @@ if __name__ == '__main__':
 
     application = Application(Framework.AnalysisMetabolomics, applicationVersion, commandLineArguments)
     Framework._getApplication = lambda: application
+
     application.start()
