@@ -53,6 +53,7 @@ from ccpn.ui.gui.widgets.Spinbox import Spinbox
 from ccpn.ui.gui.widgets.DoubleSpinbox import DoubleSpinbox
 from ccpn.core.lib.peakUtils import getNmrResidueDeltas
 from ccpn.ui.gui.widgets.CustomExportDialog import CustomExportDialog
+from ccpn.ui.gui.widgets.GuiTable import exportTableDialog
 from ccpn.ui.gui.widgets.BarGraph import CustomViewBox
 from ccpn.ui.gui.lib.mouseEvents import \
     leftMouse, shiftLeftMouse, controlLeftMouse, controlShiftLeftMouse, \
@@ -442,9 +443,9 @@ class PcaModule(CcpnModule):
 
         ### Other buttons
         mi += 1
-        self.buttonList = ButtonList(self.mainWidget, texts=['Save as dataset', 'Export...'], callbacks=[None, None],
+        self.buttonList = ButtonList(self.mainWidget, texts=['Save as dataset', 'Export...'], callbacks=[None, self._raiseExportContextMenu],
                                      grid=(mi, 0))
-        self.buttonList.setEnabled(False)
+        self.buttonList.buttons[0].setEnabled(False)
 
         #### Settings widgets
         self._setSettingsWidgets()
@@ -485,7 +486,7 @@ class PcaModule(CcpnModule):
         self.xMin1D = DoubleSpinbox(self.spectralRegionFrame, prefix='Min', value=-14, min=-1000, decimals=3, grid=(0, 0))
         self.xMax1D = DoubleSpinbox(self.spectralRegionFrame, prefix='Max', value=14, max=1000, decimals=3, grid=(0, 1))
         self.xMin1D.editingFinished.connect(self._changeSpectralRegion)
-
+        self.settingsWidget.getLayout().setAlignment(QtCore.Qt.AlignTop)
         # ROI Not in Use but working code
         # HLine(self.settingsWidget, grid=(si, 0), gridSpan=(0, 2), colour=getColours()[DIVIDER], height=5)
         #
@@ -958,6 +959,36 @@ class PcaModule(CcpnModule):
         self.invertSelectionAction.setEnabled(v)
         self.groupSelectionAction.setEnabled(v)
         self._openSelectedAction.setEnabled(v)
+
+    def _export(self, value):
+        df = None
+        decomposition = self.decomposition
+        if decomposition is None: return
+        model = decomposition.model
+        if model is None: return
+        vv = getattr(model, value)
+        if isinstance(vv, tuple):
+            if len(vv)==2:
+                df = vv[1]
+        else:
+            df = vv
+
+        exportTableDialog(df, path='~/'+value+'.xlsx')
+
+    def _raiseExportContextMenu(self, ):
+        button = self.sender()
+        ops = {
+            'PC Scores': 'scores_',
+            'Q Scores':  'qScores_',
+            'T2 Scores': 't2Scores_',
+            }
+
+        self.exportContextMenu = Menu('', None, isFloatWidget=True)
+        for k,v in ops.items():
+            self.exportContextMenu.addAction(k, partial(self._export,v))
+        self.exportContextMenu.exec_(button.mapToGlobal(QtCore.QPoint(button.pos())))
+
+
 
     def _raiseScatterContextMenu(self, ev):
         """ Creates all the menu items for the scatter context menu. """
